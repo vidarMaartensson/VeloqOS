@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/VeloqOS.Api/VeloqOS.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/VeloqOS.Api.Tests/VeloqOS.Api.Tests.csproj" />
+  </Folder>
+</Solution>

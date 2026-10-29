@@ -1,0 +1,13 @@
+# Prompt about a project and get the plan-first reply.
+appId: com.vidarmartensson.veloqos
+---
+- launchApp:
+    clearState: true
+- tapOn: "PROJEKT"
+- tapOn:
+    text: "Prompta"
+    index: 0
+- tapOn: "Prompt"
+- inputText: "Planera nästa steg"
+- tapOn: "Skicka"
+- assertVisible: ".*Uppfattat.*"

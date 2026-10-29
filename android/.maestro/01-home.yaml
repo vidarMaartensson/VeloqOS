@@ -1,0 +1,12 @@
+# Home shows the greeting, the calendar card and the chores against the running API.
+appId: com.vidarmartensson.veloqos
+---
+- launchApp:
+    clearState: true
+- assertVisible: "Veloq OS"
+- assertVisible: ".*Vidar\\."
+- assertVisible: "KALENDER"
+- assertVisible: "Anslut Google Kalender"
+- scrollUntilVisible:
+    element: "CHORES"
+    direction: DOWN

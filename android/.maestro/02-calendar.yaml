@@ -1,0 +1,9 @@
+# Connecting the (sample) calendar shows the day with a bookable focus suggestion.
+appId: com.vidarmartensson.veloqos
+---
+- launchApp:
+    clearState: true
+- tapOn: "Anslut Google Kalender"
+- assertVisible: "Fokus · Halo Home motion"
+- tapOn: "Boka"
+- assertNotVisible: "Boka"

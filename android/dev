@@ -1,0 +1,275 @@
+#!/usr/bin/env bash
+#
+# ./dev — pick a device or emulator, build + install debug, launch Veloq OS,
+# and optionally follow its logcat.
+#
+# Works with macOS' bundled bash 3.2 (no mapfile / associative arrays).
+
+set -euo pipefail
+
+PACKAGE="com.vidarmartensson.veloqos"
+LAUNCH_ACTIVITY="$PACKAGE/.MainActivity"
+BOOT_TIMEOUT_SECONDS=240
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if [[ -t 1 ]]; then
+    BOLD=$'\033[1m'; DIM=$'\033[2m'; RED=$'\033[31m'; GREEN=$'\033[32m'; YELLOW=$'\033[33m'; RESET=$'\033[0m'
+else
+    BOLD=""; DIM=""; RED=""; GREEN=""; YELLOW=""; RESET=""
+fi
+
+info() { printf '%s==>%s %s\n' "$GREEN" "$RESET" "$*"; }
+warn() { printf '%s!%s %s\n' "$YELLOW" "$RESET" "$*" >&2; }
+die()  { printf '%sError:%s %s\n' "$RED" "$RESET" "$*" >&2; exit 1; }
+
+# ---------------------------------------------------------------------------
+# 1. Locate tools
+# ---------------------------------------------------------------------------
+
+find_sdk() {
+    local candidate
+    for candidate in "${ANDROID_HOME:-}" "${ANDROID_SDK_ROOT:-}" "$HOME/Library/Android/sdk" "$HOME/Android/Sdk"; do
+        if [[ -n "$candidate" && -d "$candidate" ]]; then
+            echo "$candidate"
+            return 0
+        fi
+    done
+    return 1
+}
+
+SDK_DIR="$(find_sdk || true)"
+
+resolve_tool() {
+    # $1 = tool name, $2 = path relative to the SDK
+    local name="$1" rel="$2"
+    if command -v "$name" >/dev/null 2>&1; then
+        command -v "$name"
+    elif [[ -n "$SDK_DIR" && -x "$SDK_DIR/$rel" ]]; then
+        echo "$SDK_DIR/$rel"
+    else
+        return 1
+    fi
+}
+
+ADB="$(resolve_tool adb platform-tools/adb)" || die "adb not found.
+  Add it to PATH, or set ANDROID_HOME to your SDK (e.g. export ANDROID_HOME=\"\$HOME/Library/Android/sdk\").
+  Install it with Android Studio → SDK Manager → SDK Tools → Android SDK Platform-Tools."
+
+EMULATOR="$(resolve_tool emulator emulator/emulator)" || die "emulator not found.
+  Add it to PATH, or set ANDROID_HOME to your SDK (e.g. export ANDROID_HOME=\"\$HOME/Library/Android/sdk\").
+  Install it with Android Studio → SDK Manager → SDK Tools → Android Emulator."
+
+# Gradle needs a JDK; fall back to the one bundled with Android Studio.
+if [[ -z "${JAVA_HOME:-}" ]] && ! /usr/libexec/java_home >/dev/null 2>&1; then
+    for jbr in "/Applications/Android Studio.app/Contents/jbr/Contents/Home" \
+               "$HOME/Applications/Android Studio.app/Contents/jbr/Contents/Home"; do
+        if [[ -x "$jbr/bin/java" ]]; then
+            export JAVA_HOME="$jbr"
+            break
+        fi
+    done
+    [[ -n "${JAVA_HOME:-}" ]] || die "No JDK found. Install one or set JAVA_HOME."
+fi
+
+# ---------------------------------------------------------------------------
+# 2. Collect devices and AVDs
+# ---------------------------------------------------------------------------
+
+"$ADB" start-server >/dev/null 2>&1 || true
+
+# Parallel arrays describing the menu entries.
+ENTRY_KIND=()    # device | running-avd | avd
+ENTRY_SERIAL=()  # adb serial (empty for AVDs that are not running)
+ENTRY_AVD=()     # AVD name (empty for physical devices)
+ENTRY_LABEL=()
+
+RUNNING_AVDS=$'\n'  # newline-delimited list of running AVD names
+
+while read -r serial state _; do
+    [[ -z "$serial" || "$serial" == "List" ]] && continue
+    if [[ "$serial" == emulator-* ]]; then
+        avd="$("$ADB" -s "$serial" emu avd name 2>/dev/null | head -n1 | tr -d '\r' || true)"
+        [[ -z "$avd" ]] && avd="$serial"
+        RUNNING_AVDS+="$avd"$'\n'
+        ENTRY_KIND+=("running-avd"); ENTRY_SERIAL+=("$serial"); ENTRY_AVD+=("$avd")
+        ENTRY_LABEL+=("$avd ${DIM}($serial, running)${RESET}")
+    else
+        if [[ "$state" == "device" ]]; then
+            model="$("$ADB" -s "$serial" shell getprop ro.product.model 2>/dev/null | tr -d '\r' || true)"
+            label="${model:-unknown} ${DIM}($serial)${RESET}"
+        else
+            label="$serial ${YELLOW}[$state]${RESET}"
+        fi
+        ENTRY_KIND+=("device"); ENTRY_SERIAL+=("$serial"); ENTRY_AVD+=("")
+        ENTRY_LABEL+=("$label")
+    fi
+done < <("$ADB" devices | tail -n +2)
+
+while read -r avd; do
+    [[ -z "$avd" ]] && continue
+    # Skip emulator log noise (lines like "INFO | ...")
+    [[ "$avd" == *"|"* ]] && continue
+    case "$RUNNING_AVDS" in *$'\n'"$avd"$'\n'*) continue ;; esac
+    ENTRY_KIND+=("avd"); ENTRY_SERIAL+=(""); ENTRY_AVD+=("$avd")
+    ENTRY_LABEL+=("$avd ${DIM}(not running)${RESET}")
+done < <("$EMULATOR" -list-avds 2>/dev/null)
+
+COUNT=${#ENTRY_KIND[@]}
+[[ $COUNT -eq 0 ]] && die "No connected devices and no AVDs found.
+  Connect a device with USB debugging enabled, or create an emulator in Android Studio → Device Manager."
+
+# ---------------------------------------------------------------------------
+# 3. Menu (always shown, even with a single choice)
+# ---------------------------------------------------------------------------
+
+print_section() {
+    # $1 = title, remaining = kinds to include
+    local title="$1"; shift
+    local printed=0 i kind k
+    for ((i = 0; i < COUNT; i++)); do
+        kind="${ENTRY_KIND[$i]}"
+        for k in "$@"; do
+            if [[ "$kind" == "$k" ]]; then
+                [[ $printed -eq 0 ]] && printf '\n%s%s%s\n' "$BOLD" "$title" "$RESET"
+                printed=1
+                printf '  %2d) %s\n' "$((i + 1))" "${ENTRY_LABEL[$i]}"
+            fi
+        done
+    done
+    [[ $printed -eq 0 ]] && printf '\n%s%s%s\n  %s(none)%s\n' "$BOLD" "$title" "$RESET" "$DIM" "$RESET"
+    return 0
+}
+
+print_section "Physical devices" device
+print_section "Emulators" running-avd avd
+echo
+
+while true; do
+    read -r -p "Choose a target [1-$COUNT, q to quit]: " choice
+    [[ "$choice" == "q" || "$choice" == "Q" ]] && exit 0
+    if [[ "$choice" =~ ^[0-9]+$ ]] && ((choice >= 1 && choice <= COUNT)); then
+        break
+    fi
+    warn "Enter a number between 1 and $COUNT."
+done
+
+IDX=$((choice - 1))
+KIND="${ENTRY_KIND[$IDX]}"
+SERIAL="${ENTRY_SERIAL[$IDX]}"
+AVD="${ENTRY_AVD[$IDX]}"
+
+if [[ "$KIND" == "device" ]]; then
+    state="$("$ADB" -s "$SERIAL" get-state 2>/dev/null || true)"
+    [[ "$state" == "device" ]] || die "$SERIAL is not ready (state: ${state:-unknown}). Accept the USB debugging prompt on the device and try again."
+fi
+
+# ---------------------------------------------------------------------------
+# 4. Boot the emulator if needed
+# ---------------------------------------------------------------------------
+
+serial_for_avd() {
+    local s _rest name
+    while read -r s _rest; do
+        [[ "$s" == emulator-* ]] || continue
+        name="$("$ADB" -s "$s" emu avd name 2>/dev/null | head -n1 | tr -d '\r' || true)"
+        if [[ "$name" == "$1" ]]; then
+            echo "$s"
+            return 0
+        fi
+    done < <("$ADB" devices | tail -n +2)
+    return 1
+}
+
+wait_for_boot() {
+    local serial="$1" waited=0 booted
+    printf '%s==>%s Waiting for %s to finish booting ' "$GREEN" "$RESET" "$serial"
+    while ((waited < BOOT_TIMEOUT_SECONDS)); do
+        booted="$("$ADB" -s "$serial" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+        if [[ "$booted" == "1" ]]; then
+            printf ' done (%ss)\n' "$waited"
+            return 0
+        fi
+        printf '.'
+        sleep 2
+        waited=$((waited + 2))
+    done
+    echo
+    die "$serial did not finish booting within ${BOOT_TIMEOUT_SECONDS}s."
+}
+
+if [[ "$KIND" == "avd" ]]; then
+    EMULATOR_LOG="${TMPDIR:-/tmp}/veloqos-emulator-$AVD.log"
+    info "Starting emulator $AVD (log: $EMULATOR_LOG)"
+    nohup "$EMULATOR" -avd "$AVD" -netdelay none -netspeed full >"$EMULATOR_LOG" 2>&1 &
+    EMULATOR_PID=$!
+
+    waited=0
+    SERIAL=""
+    while [[ -z "$SERIAL" ]]; do
+        if ! kill -0 "$EMULATOR_PID" 2>/dev/null; then
+            die "The emulator exited unexpectedly. See $EMULATOR_LOG"
+        fi
+        ((waited >= BOOT_TIMEOUT_SECONDS)) && die "Emulator $AVD never showed up in adb. See $EMULATOR_LOG"
+        sleep 2
+        waited=$((waited + 2))
+        SERIAL="$(serial_for_avd "$AVD" || true)"
+    done
+    info "Emulator is on $SERIAL"
+fi
+
+if [[ "$KIND" != "device" ]]; then
+    "$ADB" -s "$SERIAL" wait-for-device
+    wait_for_boot "$SERIAL"
+fi
+
+export ANDROID_SERIAL="$SERIAL"
+
+# ---------------------------------------------------------------------------
+# 5. Build, install, launch
+# ---------------------------------------------------------------------------
+
+info "Building and installing debug build on $SERIAL"
+(cd "$ROOT_DIR" && ./gradlew installDebug </dev/null)
+
+info "Launching $PACKAGE"
+"$ADB" -s "$SERIAL" shell am start -n "$LAUNCH_ACTIVITY" >/dev/null
+
+# ---------------------------------------------------------------------------
+# 6. Optional logcat
+# ---------------------------------------------------------------------------
+
+read -r -p "Follow the log? [Y/n]: " follow
+case "$follow" in
+    n|N|no|No) exit 0 ;;
+esac
+
+info "Following logcat for $PACKAGE (Ctrl-C to stop). Reattaches if the app restarts."
+LOGCAT_PID=""
+# Background jobs ignore SIGINT in non-interactive bash, so stop logcat explicitly.
+trap '[[ -n "$LOGCAT_PID" ]] && kill "$LOGCAT_PID" 2>/dev/null; echo; exit 0' INT TERM
+while true; do
+    pid=""
+    for _ in $(seq 1 20); do
+        pid="$("$ADB" -s "$SERIAL" shell pidof -s "$PACKAGE" 2>/dev/null | tr -d '\r' || true)"
+        [[ -n "$pid" ]] && break
+        sleep 0.5
+    done
+    if [[ -z "$pid" ]]; then
+        warn "$PACKAGE is not running; waiting for it to start…"
+        sleep 2
+        continue
+    fi
+    printf '%s--- pid %s ---%s\n' "$DIM" "$pid" "$RESET"
+    # logcat --pid exits on its own only if the device disconnects, so poll for pid changes.
+    "$ADB" -s "$SERIAL" logcat -v color --pid="$pid" &
+    LOGCAT_PID=$!
+    while kill -0 "$LOGCAT_PID" 2>/dev/null; do
+        sleep 2
+        current="$("$ADB" -s "$SERIAL" shell pidof -s "$PACKAGE" 2>/dev/null | tr -d '\r' || true)"
+        if [[ "$current" != "$pid" ]]; then
+            kill "$LOGCAT_PID" 2>/dev/null || true
+            wait "$LOGCAT_PID" 2>/dev/null || true
+            break
+        fi
+    done
+done

@@ -1,0 +1,12 @@
+# Open a mail from the Inbox tab, archive it and undo.
+appId: com.vidarmartensson.veloqos
+---
+- launchApp:
+    clearState: true
+- tapOn: "INKORG"
+- assertVisible: "Det som behöver dig."
+- tapOn: "Google Play Console"
+- tapOn: "Arkivera"
+- assertVisible: "Arkiverat."
+- tapOn: "Ångra"
+- assertVisible: "Välj vad som ska hända"

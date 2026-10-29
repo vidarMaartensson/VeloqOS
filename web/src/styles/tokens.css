@@ -1,0 +1,63 @@
+/* Veloq Labs design system – tokens. Dark only. */
+:root {
+  --bg: #0b0d12;
+  --bg-sunk: #0d1016;
+  --surface: #11141b;
+  --surface-hover: #131721;
+  --surface-raised: #161a22;
+  --tile: #232935;
+  --grid: #131720;
+  --line-subtle: #1a1e27;
+  --line: #1e232d;
+  --line-strong: #2a303c;
+  --ink: #f2f4f8;
+  --ink-soft: #c9cfd9;
+  --ink-body: #b4bcc8;
+  --ink-muted: #9aa3b2;
+  --ink-faint: #8a93a3;
+  --accent: #3df2c6;
+  --on-accent: #0b0d12;
+  --danger: #ff8a7a;
+
+  --font-sans: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --radius-sm: 14px;
+  --radius-tile: 18px;
+  --radius-md: 24px;
+  --radius-lg: 28px;
+  --radius-xl: 36px;
+  --radius-pill: 999px;
+
+  --shadow-menu: 0 24px 60px -20px #000;
+  --shadow-glow: 0 14px 40px -12px rgba(61, 242, 198, 0.7);
+
+  --ease-spring: cubic-bezier(0.2, 1.8, 0.4, 1);
+  --ease-spring-soft: cubic-bezier(0.2, 1.6, 0.4, 1);
+  --ease-settle: cubic-bezier(0.2, 1.3, 0.4, 1);
+  --ease-out: cubic-bezier(0.2, 0.9, 0.2, 1);
+  --ease-draw: cubic-bezier(0.6, 0, 0.2, 1);
+  --dur-fast: 300ms;
+  --dur-hover: 600ms;
+  --dur-card: 700ms;
+  --dur-enter: 900ms;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+::selection { background: var(--accent); color: var(--on-accent); }
+button, input, textarea { font-family: inherit; }
+a { color: var(--ink); text-decoration: none; }
+a:hover { color: var(--accent); }
+:is(button, input, a, textarea):focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
