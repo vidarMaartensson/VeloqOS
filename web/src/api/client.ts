@@ -10,6 +10,7 @@ import type {
   Project,
   Routine,
 } from './types';
+import { API_BASE } from './base';
 
 export class ApiError extends Error {
   constructor(
@@ -20,7 +21,6 @@ export class ApiError extends Error {
   }
 }
 
-const BASE = import.meta.env.VITE_API_BASE ?? '/api';
 const KEY = import.meta.env.VITE_VELOQ_KEY as string | undefined;
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -28,7 +28,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (init.body) headers.set('Content-Type', 'application/json');
   if (KEY) headers.set('X-Veloq-Key', KEY);
 
-  const response = await fetch(`${BASE}${path}`, { ...init, headers });
+  const response = await fetch(`${API_BASE}${path}`, { ...init, headers });
   if (!response.ok) {
     throw new ApiError(response.status, `${init.method ?? 'GET'} ${path} gav ${response.status}`);
   }

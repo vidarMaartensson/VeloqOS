@@ -1,0 +1,15 @@
+{
+  "name": "veloq-os-desktop",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "icons": "tauri icon ../web/public/favicon.svg",
+    "test": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "smoke": "bash scripts/smoke.sh"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

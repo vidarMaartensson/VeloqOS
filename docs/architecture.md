@@ -27,11 +27,13 @@ Allt tillstånd ligger i minnet i första versionen (singletons). Det räcker f�
 - **Webben** (variant C): rail till vänster, statusrad, orbit med projekt runt chores, tidslinje, jobb, snabbprompt, kalender och artefakthylla. Inkorgen öppnas som en tvåpanelsvy med actions.
 - **Telefonen** (variant A): fem flikar (Hem, Prompt, Projekt, Inkorg, Mer). Hem har prompt, kalender, pågående jobb, chores och de viktigaste mejlen.
 
-Båda läser samma endpoints; ingen affärslogik dupliceras i klienterna utöver presentation.
+- **Mac-appen** (`desktop/`, Tauri 2): samma webbbygge i ett eget fönster. Appen väljer port som `start.sh` (återanvänder ett Veloq-API på 7480, annars första lediga), startar API:t som en sidecar-fil byggd med `dotnet publish --self-contained` och berättar adressen för webben via `window.__VELOQ_API_BASE__`. Ursprunget `tauri://localhost` finns i `Veloq:WebOrigins`.
+
+Alla läser samma endpoints; ingen affärslogik dupliceras i klienterna utöver presentation.
 
 ## Åtkomst från telefonen
 
-API:t lyssnar på `0.0.0.0:5080`. Enklast och säkrast är Tailscale (eller liknande) mellan telefon och dator, plus `Auth:ApiKey`. Exponera aldrig API:t mot internet utan nyckel.
+API:t lyssnar på `0.0.0.0:7480`. Enklast och säkrast är Tailscale (eller liknande) mellan telefon och dator, plus `Auth:ApiKey`. Exponera aldrig API:t mot internet utan nyckel.
 
 ## Vägen framåt
 

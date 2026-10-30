@@ -1,6 +1,6 @@
 # API-kontrakt
 
-Bas: `http://<dator>:5080/api`. JSON med camelCase. Alla tider i ISO 8601 med offset.
+Bas: `http://<dator>:7480/api`. JSON med camelCase. Alla tider i ISO 8601 med offset.
 
 Om `Auth:ApiKey` är satt måste varje anrop (utom `/api/health`) skicka `X-Veloq-Key: <nyckel>`, annars `401`.
 
