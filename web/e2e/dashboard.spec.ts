@@ -9,7 +9,8 @@ async function mockApi(page: Page) {
     jobs: [] as ReturnType<typeof runningJob>[],
   };
 
-  await page.route('**/api/**', async (route) => {
+  // Match on the path prefix: a '**/api/**' glob also catches Vite's own modules under src/api/.
+  await page.route((url) => url.pathname.startsWith('/api/'), async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname.replace(/^\/api/, '');
     const method = route.request().method();

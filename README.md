@@ -6,6 +6,7 @@ Ett personligt operativsystem runt Claude: en dashboard på datorn för det dagl
 web/       Dashboard (React + Vite + TypeScript) – variant C, "Orbit-dashboard"
 api/       Backend (.NET 10 minimal API) – projekt, chores, jobb, rutiner, inkorg, kalender, artefakter, prompt
 android/   Telefonappen (Kotlin + Jetpack Compose) – variant A, "Klassisk"
+desktop/   Mac-appen (Tauri 2) – dashboarden i eget fönster, startar API:t själv
 docs/      Arkitektur, API-kontrakt och designbeslut
 ```
 
@@ -24,17 +25,33 @@ Manuellt:
 Krav: .NET 10 SDK, Node 22+, Android Studio (AGP 9.4, JDK 17+).
 
 ```bash
-# 1. API:t – http://localhost:5080
+# 1. API:t – http://localhost:7480
 cd api && dotnet run --project src/VeloqOS.Api
 
-# 2. Dashboarden – http://localhost:5173 (proxar /api till 5080)
+# 2. Dashboarden – http://localhost:7470 (proxar /api till 7480)
 cd web && npm install && npm run dev
 
 # 3. Telefonappen – bygg, installera och starta på enhet/emulator
 cd android && ./dev
 ```
 
-Emulatorn når datorn på `http://10.0.2.2:5080` (förvalt). På en riktig telefon anger du datorns adress i appens inställningar, till exempel via Tailscale.
+Emulatorn når datorn på `http://10.0.2.2:7480` (förvalt). På en riktig telefon anger du datorns adress i appens inställningar, till exempel via Tailscale.
+
+## Mac-appen
+
+`desktop/` paketerar dashboarden som `Veloq OS.app` med Tauri. Appen startar ett inbyggt API när den öppnas och stänger det när du avslutar. Kör redan ett Veloq-API på :7480 (till exempel via `start.sh`) används det i stället. API-loggen hamnar i `~/Library/Logs/com.vidarmartensson.veloqos/api.log`.
+
+Krav utöver ovan: Rust (`curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`).
+
+```bash
+cd desktop && npm install
+npm run dev     # fönster mot Vite på :7470, med hot reload
+npm run build   # src-tauri/target/release/bundle/macos/Veloq OS.app och en .dmg
+npm test        # Rust-enhetstester (portval, hälsokoll)
+npm run smoke   # startar den byggda appen och kollar API, CORS och fönster
+```
+
+Appen är bara ad hoc-signerad. Första gången öppnar du den med högerklick → Öppna. Telefonen når API:t så länge appen (eller `start.sh`) är igång.
 
 ## Första gången på en ny dator
 

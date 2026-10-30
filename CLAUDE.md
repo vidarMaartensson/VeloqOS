@@ -17,6 +17,7 @@ Instruktioner för Claude (och andra agenter) som jobbar i det här repot.
 | `api/` | .NET 10 minimal API, xUnit | `dotnet run --project src/VeloqOS.Api`, `dotnet test` |
 | `web/` | React 19 + Vite + TypeScript, Vitest, Playwright | `npm run dev`, `npm test`, `npm run e2e`, `npm run build` |
 | `android/` | Kotlin + Compose, AGP 9.4, JUnit, Maestro | `./dev`, `./gradlew testDebugUnitTest`, `./.maestro/run.sh` |
+| `desktop/` | Tauri 2 (Rust) runt `web/` + API:t som sidecar | `npm run dev`, `npm test`, `npm run build`, `npm run smoke` |
 
 ## Arkitektur i korthet
 

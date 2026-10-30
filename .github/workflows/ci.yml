@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
 
+# paths-filter lists the PR's files through the API, which needs pull-requests: read.
+permissions:
+  contents: read
+  pull-requests: read
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true

@@ -34,9 +34,9 @@ class SettingsStore(private val context: Context) {
 
         /**
          * The emulator reaches the host on 10.0.2.2. A real phone on USB uses localhost, which
-         * scripts/start.sh forwards to the computer with `adb reverse tcp:5080 tcp:5080`.
+         * scripts/start.sh forwards to the computer with `adb reverse tcp:7480 tcp:7480`.
          */
         val DEFAULT_URL: String
-            get() = if (isEmulator) "http://10.0.2.2:5080" else "http://127.0.0.1:5080"
+            get() = if (isEmulator) "http://10.0.2.2:7480" else "http://127.0.0.1:7480"
     }
 }

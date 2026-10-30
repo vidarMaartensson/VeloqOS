@@ -3,7 +3,7 @@
 # Veloq OS – kör testerna och startar allt:
 #   1. git-repot (första gången)
 #   2. tester för api, web och android (loggar i .logs/)
-#   3. API:t på :5080 och dashboarden på :5173 (öppnas i webbläsaren)
+#   3. API:t på :7480 och dashboarden på :7470 (öppnas i webbläsaren)
 #   4. appen på en ansluten Android-telefon via USB, med `adb reverse` så att telefonen når API:t
 #
 #   bash scripts/start.sh               # allt
@@ -36,7 +36,7 @@ PIDS=""
 cleanup() {
     printf '\n%sStoppar Veloq OS…%s\n' "$D" "$X"
     for pid in $PIDS; do kill "$pid" 2>/dev/null; done
-    [[ -n "${SERIAL:-}" ]] && "$ADB" -s "$SERIAL" reverse --remove tcp:5080 >/dev/null 2>&1
+    [[ -n "${SERIAL:-}" ]] && "$ADB" -s "$SERIAL" reverse --remove tcp:7480 >/dev/null 2>&1
     exit 0
 }
 trap cleanup INT TERM
@@ -57,6 +57,12 @@ fi
 
 SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}}"
 ADB="$(command -v adb || echo "$SDK/platform-tools/adb")"
+if [[ -d "$SDK" ]]; then
+    export ANDROID_HOME="$SDK"
+    [[ -f "$ROOT/android/local.properties" ]] || echo "sdk.dir=$SDK" > "$ROOT/android/local.properties"
+else
+    note "Android-SDK:n hittades inte i $SDK – sätt ANDROID_HOME"
+fi
 
 missing=false
 command -v dotnet >/dev/null || { bad "dotnet saknas – installera .NET 10 SDK: brew install --cask dotnet-sdk"; missing=true; }
@@ -100,35 +106,48 @@ fi
 step "Startar API:t"
 # ---------------------------------------------------------------------------
 
-if curl -fsS http://localhost:5080/api/health >/dev/null 2>&1; then
-    note "Något kör redan på :5080 – använder det"
+is_veloq() { curl -fsS "http://localhost:$1/api/health" 2>/dev/null | grep -q '"status":"ok"'; }
+port_busy() { lsof -nP -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1; }
+
+API_PORT=7480
+if is_veloq "$API_PORT"; then
+    note "Veloq OS-API:t kör redan på :$API_PORT – använder det"
 else
-    (cd "$ROOT/api" && exec dotnet run --project src/VeloqOS.Api) > "$LOGS/api.log" 2>&1 &
+    while port_busy "$API_PORT"; do
+        holder="$(lsof -nP -iTCP:"$API_PORT" -sTCP:LISTEN 2>/dev/null | awk 'NR==2 {print $1" (pid "$2")"}')"
+        note "Port $API_PORT används av $holder – provar $((API_PORT + 1))"
+        API_PORT=$((API_PORT + 1))
+    done
+    (cd "$ROOT/api" && exec dotnet run --project src/VeloqOS.Api --no-launch-profile -- --urls "http://0.0.0.0:$API_PORT") > "$LOGS/api.log" 2>&1 &
     PIDS="$PIDS $!"
-    for _ in $(seq 1 90); do
-        curl -fsS http://localhost:5080/api/health >/dev/null 2>&1 && break
+    for _ in $(seq 1 120); do
+        is_veloq "$API_PORT" && break
         sleep 1
     done
-    if curl -fsS http://localhost:5080/api/health >/dev/null 2>&1; then
-        ok "API på http://localhost:5080"
+    if is_veloq "$API_PORT"; then
+        ok "API på http://localhost:$API_PORT"
     else
         bad "API:t startade inte – se .logs/api.log"
     fi
 fi
+export VELOQ_API_PORT="$API_PORT"
 
 # ---------------------------------------------------------------------------
 step "Startar dashboarden"
 # ---------------------------------------------------------------------------
 
-(cd "$ROOT/web" && exec npx vite --host --port 5173 --strictPort) > "$LOGS/web.log" 2>&1 &
+if port_busy 7470; then
+    note "Port 7470 är upptagen – stoppa den gamla dashboarden (eller en tidigare körning) och kör igen"
+fi
+(cd "$ROOT/web" && exec npx vite --host --port 7470 --strictPort) > "$LOGS/web.log" 2>&1 &
 PIDS="$PIDS $!"
 for _ in $(seq 1 60); do
-    curl -fsS http://localhost:5173 >/dev/null 2>&1 && break
+    curl -fsS http://localhost:7470 >/dev/null 2>&1 && break
     sleep 1
 done
-if curl -fsS http://localhost:5173 >/dev/null 2>&1; then
-    ok "Dashboard på http://localhost:5173"
-    open "http://localhost:5173" 2>/dev/null
+if curl -fsS http://localhost:7470 >/dev/null 2>&1; then
+    ok "Dashboard på http://localhost:7470"
+    open "http://localhost:7470" 2>/dev/null
 else
     bad "Dashboarden startade inte – se .logs/web.log"
 fi
@@ -153,8 +172,8 @@ if [[ -x "$ADB" ]]; then
         fi
     else
         MODEL="$("$ADB" -s "$SERIAL" shell getprop ro.product.model 2>/dev/null | tr -d '\r')"
-        if "$ADB" -s "$SERIAL" reverse tcp:5080 tcp:5080 >/dev/null 2>&1; then
-            ok "adb reverse :5080 → datorn ($MODEL)"
+        if "$ADB" -s "$SERIAL" reverse tcp:7480 "tcp:$API_PORT" >/dev/null 2>&1; then
+            ok "adb reverse telefon :7480 → datorn :$API_PORT ($MODEL)"
         else
             bad "adb reverse misslyckades"
         fi
