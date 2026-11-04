@@ -23,7 +23,13 @@ export const PATHS = {
   archive: 'M4 5h16v4H4zM6 9v10h12V9M10 13h4',
   task: 'M5 12l4 4 10-10M5 5h6M5 19h14',
   snooze: 'M12 21a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM12 9v4l2 2M5 3L2 6M19 3l3 3',
+  stories: 'M5 6h2M5 12h2M5 18h2M10 6h9M10 12h9M10 18h9',
   calendarAdd: 'M5 5h14v15H5zM5 10h14M9 3v4M15 3v4M12 13v4M10 15h4',
+  disk: 'M4 6h16v5H4zM4 13h16v5H4zM7 8.5h.01M7 15.5h.01M11 8.5h6M11 15.5h6',
+  skill: 'M10 4L6 20M14 9l4 3-4 3',
+  mic: 'M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM6 11a6 6 0 0 0 12 0M12 17v4M9 21h6',
+  sliders: 'M4 7h9M17 7h3M4 17h3M11 17h9M15 5v4M9 15v4',
+  open: 'M14 4h6v6M20 4l-9 9M18 14v6H4V6h6',
 } as const;
 
 export type IconName = keyof typeof PATHS;
@@ -53,6 +59,8 @@ export const choreIcon: Record<ChoreIcon, IconName> = {
   inbox: 'inbox',
   package: 'package',
   calendar: 'calendar',
+  disk: 'disk',
+  skill: 'skill',
 };
 
 export const actionIcon: Record<InboxAction, IconName> = {

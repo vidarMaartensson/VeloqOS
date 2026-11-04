@@ -98,4 +98,66 @@ public class InboxServiceTests
         Assert.All(all.Where(i => i.Tag == InboxTags.Noise), i => Assert.Equal(InboxActions.Archive, i.HandledWith));
         Assert.All(all.Where(i => i.Tag != InboxTags.Noise), i => Assert.Null(i.HandledWith));
     }
+
+    [Fact]
+    public async Task A_sent_reply_cannot_be_undone()
+    {
+        var inbox = Create();
+        await inbox.ApplyAsync("m2", InboxActions.Reply, "Hej!", Ct);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => inbox.UndoAsync("m2", Ct));
+    }
+
+    /// <summary>Returns whatever <see cref="Mail"/> holds right now and counts the fetches.</summary>
+    private sealed class ChangingInbox : IInboxProvider
+    {
+        public List<InboxItem> Mail { get; set; } = [];
+        public int Fetches { get; private set; }
+
+        public Task<IReadOnlyList<InboxItem>> FetchAsync(CancellationToken cancellationToken)
+        {
+            Fetches++;
+            return Task.FromResult<IReadOnlyList<InboxItem>>(Mail.ToList());
+        }
+
+        public Task ApplyAsync(InboxItem item, string action, string? body, CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task UndoAsync(InboxItem item, string action, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private static InboxItem Mail(string id) => new(id, "Anna", DateTimeOffset.UnixEpoch, id, InboxTags.Reply, "", InboxActions.Reply, "svara", null, null);
+
+    [Fact]
+    public async Task Refetches_after_a_while_and_keeps_handled_items_that_left_the_inbox()
+    {
+        var time = new ManualTimeProvider(new DateTimeOffset(2026, 10, 30, 9, 0, 0, TimeSpan.Zero));
+        var provider = new ChangingInbox { Mail = [Mail("a"), Mail("b")] };
+        var inbox = new InboxService(provider, time);
+        await inbox.ApplyAsync("a", InboxActions.Archive, null, Ct);
+
+        provider.Mail = [Mail("b"), Mail("c")];
+        await inbox.ListAsync(null, Ct);
+        Assert.Equal(1, provider.Fetches);
+
+        time.Advance(InboxService.RefreshAfter);
+        var items = await inbox.ListAsync(null, Ct);
+
+        Assert.Equal(2, provider.Fetches);
+        Assert.Equal(["a", "b", "c"], items.Select(i => i.Id).Order());
+        Assert.Equal(InboxActions.Archive, items.Single(i => i.Id == "a").HandledWith);
+        Assert.NotNull(await inbox.UndoAsync("a", Ct));
+    }
+
+    [Fact]
+    public async Task Invalidate_refetches_on_the_next_call()
+    {
+        var provider = new ChangingInbox { Mail = [Mail("a")] };
+        var inbox = new InboxService(provider);
+        await inbox.ListAsync(null, Ct);
+
+        inbox.Invalidate();
+        provider.Mail = [Mail("a"), Mail("b")];
+
+        Assert.Equal(2, (await inbox.ListAsync(null, Ct)).Count);
+    }
 }

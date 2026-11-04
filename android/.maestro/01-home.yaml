@@ -6,7 +6,7 @@ appId: com.vidarmartensson.veloqos
 - assertVisible: "Veloq OS"
 - assertVisible: ".*Vidar\\."
 - assertVisible: "KALENDER"
-- assertVisible: "Anslut Google Kalender"
+- assertVisible: "Anslut Google"
 - scrollUntilVisible:
     element: "CHORES"
     direction: DOWN

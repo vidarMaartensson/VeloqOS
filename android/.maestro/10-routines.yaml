@@ -1,0 +1,20 @@
+# Run a routine now from Mer: its job shows under Jobb.
+# Needs the API's EchoAgent, not real Claude Code: dotnet run --project src/VeloqOS.Api -- --Claude:Command=
+appId: com.vidarmartensson.veloqos
+---
+- launchApp:
+    clearState: true
+- tapOn: "MER"
+- scrollUntilVisible:
+    element: "RUTINER"
+    direction: DOWN
+- assertVisible: "Morgonbrief"
+# Enabled routines show when they run next.
+- assertVisible: "NÄSTA · .*"
+- tapOn:
+    text: "Kör nu"
+    index: 0
+- scrollUntilVisible:
+    element: "JOBB"
+    direction: UP
+- assertVisible: "Morgonbrief"

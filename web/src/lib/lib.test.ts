@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { calendarConnected, inbox, NOW, projects, routines } from '../test/fixtures';
+import { calendarConnected, chores, inbox, NOW, projects, routines, runningJob, waitingJob } from '../test/fixtures';
+import { jobLine, needsRunSheet, waitsForChoice } from './chores';
+import { statusLine } from './projects';
+import { statuses } from '../test/fixtures';
 import { actionInfo, filterItems, inboxTitle, initial, needsYou, openCount, rowStatus } from './inbox';
-import { placeChores, placeOrbs, pointerOffset, SCENE } from './orbit';
+import { placeChores, placeOrbs, placeSkills, pointerOffset, SCENE } from './orbit';
 import { buildTimeline, scheduleTimeOn } from './today';
-import { clock, duration, eventPhase, greeting, isoDate, relativeDay, weekOf } from './time';
+import { clock, duration, eventPhase, greeting, isoDate, relativeDay, stockholmIso, upcoming, weekOf } from './time';
 
 describe('orbit', () => {
   it('places every project on the ellipse with a size by tier', () => {
@@ -22,6 +25,14 @@ describe('orbit', () => {
     const nodes = placeChores(6, 100);
     expect(nodes[0]).toEqual({ x: 0, y: -100 });
     expect(nodes[3].y).toBeCloseTo(100);
+  });
+
+  it('puts skills on the outer ring, half a step off the top', () => {
+    const nodes = placeSkills(4, 160);
+    expect(nodes).toHaveLength(4);
+    for (const n of nodes) expect(Math.hypot(n.x, n.y)).toBeCloseTo(160, 0);
+    expect(nodes[0].x).toBeCloseTo(113.1, 0);
+    expect(nodes[0].y).toBeCloseTo(-113.1, 0);
   });
 
   it('turns a pointer position into -1…1', () => {
@@ -61,8 +72,16 @@ describe('inbox', () => {
 describe('time', () => {
   it('greets by Stockholm time', () => {
     expect(greeting(new Date('2026-10-29T08:00:00+01:00'))).toBe('God morgon');
+    expect(greeting(new Date('2026-10-31T10:36:00+01:00'))).toBe('God förmiddag');
+    expect(greeting(new Date('2026-10-29T12:00:00+01:00'))).toBe('God eftermiddag');
     expect(greeting(NOW)).toBe('God eftermiddag');
     expect(greeting(new Date('2026-10-29T20:00:00+01:00'))).toBe('God kväll');
+  });
+
+  it('reads a date and time as Stockholm time, winter and summer', () => {
+    expect(stockholmIso('2026-11-02', '10:00')).toBe('2026-11-02T10:00:00+01:00');
+    expect(stockholmIso('2026-07-01', '10:00')).toBe('2026-07-01T10:00:00+02:00');
+    expect(stockholmIso('2026-10-25', '12:00')).toBe('2026-10-25T12:00:00+01:00');
   });
 
   it('formats dates and clock times', () => {
@@ -106,5 +125,34 @@ describe('today', () => {
     const timeline = buildTimeline(routines, calendarConnected.events, NOW, '15:20');
     expect(timeline.map((t) => t.name)).toEqual(['Morgonbrief', '[Möte]', 'Pågående möte', 'Inkorgsgenomgång']);
     expect(timeline.map((t) => t.past)).toEqual([true, true, false, false]);
+  });
+});
+
+describe('chores', () => {
+  it('opens the run sheet only for chores that take a project or an addition', () => {
+    expect(chores.filter(needsRunSheet).map((c) => c.id)).toEqual(['unused-packages', 'skill-ny-branch', 'skill-pr']);
+  });
+
+  it('sums a job up in one line', () => {
+    expect(jobLine(runningJob('memory-cleanup'))).toBe('Kör på datorn…');
+    expect(jobLine(waitingJob)).toBe('Veloq OS · Väntar på ditt val');
+    expect(jobLine({ ...waitingJob, choices: null, confirm: null })).toBe('Veloq OS · Två paket används inte.');
+    expect(jobLine({ ...waitingJob, status: 'failed', choices: null })).toBe('Veloq OS · Misslyckades');
+    expect(waitsForChoice(waitingJob)).toBe(true);
+    expect(waitsForChoice({ ...waitingJob, choices: [] })).toBe(false);
+  });
+});
+
+describe('projects', () => {
+  it('sums a repo up in one line', () => {
+    expect(statusLine(statuses[1])).toBe('feature/skills · 12 ändrade · 2 opushade · 1 PR · CI rött');
+    expect(statusLine(statuses[0])).toBe('main · rent · CI grönt');
+    expect(statusLine({ ...statuses[0], error: 'Inget git-repo.' })).toBe('Inget git-repo.');
+  });
+
+  it('says when a routine runs next', () => {
+    expect(upcoming('2026-10-29T16:30:00+01:00', NOW)).toBe('i dag 16:30');
+    expect(upcoming('2026-10-30T07:40:00+01:00', NOW)).toBe('i morgon 07:40');
+    expect(upcoming('2026-11-01T20:00:00+01:00', NOW)).toBe('sön 20:00');
   });
 });

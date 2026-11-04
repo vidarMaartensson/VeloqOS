@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import type { Message, Routine } from '../state/types';
+import { useEffect, useState, type ReactNode } from 'react';
+import type { NewCalendarEvent, Routine } from '../state/types';
+import { stockholmIso, upcoming } from '../lib/time';
 import { Icon } from './Icon';
 
-function Sheet({ eyebrow, title, label, onClose, children, footer }: { eyebrow: string; title: string; label: string; onClose: () => void; children: ReactNode; footer?: ReactNode }) {
+export function Sheet({ eyebrow, title, label, onClose, children, footer }: { eyebrow: string; title: string; label: string; onClose: () => void; children: ReactNode; footer?: ReactNode }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
@@ -27,59 +28,16 @@ function Sheet({ eyebrow, title, label, onClose, children, footer }: { eyebrow: 
   );
 }
 
-export function PromptSheet({ context, messages, thinking, onSend, onClose }: { context: string; messages: Message[]; thinking: boolean; onSend: (text: string) => void; onClose: () => void }) {
-  const [text, setText] = useState('');
-  const end = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    end.current?.scrollIntoView?.({ block: 'end' });
-  }, [messages.length, thinking]);
-
-  const submit = () => {
-    if (!text.trim()) return;
-    onSend(text);
-    setText('');
-  };
-
-  return (
-    <Sheet
-      eyebrow={`Prompt · ${context}`}
-      title="Plan först."
-      label="Prompt"
-      onClose={onClose}
-      footer={
-        <form style={{ display: 'flex', gap: 10, flex: 1 }} onSubmit={(e) => { e.preventDefault(); submit(); }}>
-          <label htmlFor="prompt-input" className="sr-only">Meddelande</label>
-          <input id="prompt-input" className="input" placeholder="Fortsätt…" value={text} onChange={(e) => setText(e.target.value)} autoFocus />
-          <button type="submit" className="primary icon" aria-label="Skicka"><Icon name="arrow" size={20} strokeWidth={2.2} /></button>
-        </form>
-      }
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }} aria-live="polite">
-        {messages.length === 0 && <p className="empty">Skriv vad du vill göra. Veloq OS gör en plan och frågar innan något byggs.</p>}
-        {messages.map((m, i) => (
-          <div key={i} className={m.role === 'user' ? 'bubble-u' : 'bubble-a'}>{m.text}</div>
-        ))}
-        {thinking && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span className="live" />
-            <span className="meta">Tänker…</span>
-          </div>
-        )}
-        <div ref={end} />
-      </div>
-    </Sheet>
-  );
-}
-
-export function RoutinesSheet({ routines, onToggle, onClose }: { routines: Routine[]; onToggle: (id: string, enabled: boolean) => void; onClose: () => void }) {
+export function RoutinesSheet({ routines, now, onToggle, onRun, onClose }: { routines: Routine[]; now: Date; onToggle: (id: string, enabled: boolean) => void; onRun: (id: string) => void; onClose: () => void }) {
   return (
     <Sheet eyebrow="Rutiner" title="Körs medan du gör annat." label="Rutiner" onClose={onClose}>
       {routines.map((r) => (
         <div key={r.id} className="lrow" style={{ alignItems: 'flex-start', padding: '16px 0' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, minWidth: 0 }}>
             <span style={{ fontSize: 17, fontWeight: 600 }}>{r.name}</span>
-            <span className="meta">{r.schedule}</span>
+            <span className="meta">{[r.schedule, r.nextRunAt ? `Nästa ${upcoming(r.nextRunAt, now)}` : null].filter(Boolean).join(' · ')}</span>
             <span style={{ fontSize: 16, lineHeight: 1.5, color: 'var(--ink-body)' }}>{r.description}</span>
+            <button className="ghost" style={{ alignSelf: 'flex-start', marginTop: 4 }} onClick={() => onRun(r.id)} aria-label={`Kör ${r.name} nu`}>Kör nu</button>
           </div>
           <button
             className="toggle"
@@ -95,20 +53,75 @@ export function RoutinesSheet({ routines, onToggle, onClose }: { routines: Routi
   );
 }
 
-const SKILLS = ['veloq-labs-design', 'docs', 'deep-research', 'morning', 'skill-creator'];
+/** "10:00" → "11:00", clamped to the same day. */
+function hourLater(time: string): string {
+  const [h, m] = time.split(':').map(Number);
+  return `${String(Math.min(h + 1, 23)).padStart(2, '0')}:${String(h + 1 > 23 ? 59 : m).padStart(2, '0')}`;
+}
 
-export function MemorySheet({ onClose }: { onClose: () => void }) {
+export function NewEventSheet({ date, now, onCreate, onClose }: { date: string; now: Date; onCreate: (event: NewCalendarEvent) => Promise<boolean>; onClose: () => void }) {
+  const nextHour = `${String(Math.min(now.getHours() + 1, 23)).padStart(2, '0')}:00`;
+  const [title, setTitle] = useState('');
+  const [day, setDay] = useState(date);
+  const [start, setStart] = useState(nextHour);
+  const [end, setEnd] = useState(hourLater(nextHour));
+  const [location, setLocation] = useState('');
+  const [saving, setSaving] = useState(false);
+  const valid = title.trim() !== '' && day !== '' && end > start;
+
+  const submit = async () => {
+    if (!valid || saving) return;
+    setSaving(true);
+    const ok = await onCreate({
+      title: title.trim(),
+      start: stockholmIso(day, start),
+      end: stockholmIso(day, end),
+      location: location.trim() || null,
+    });
+    setSaving(false);
+    if (ok) onClose();
+  };
+
   return (
-    <Sheet eyebrow="Skills & minne" title="Vad den kan och vet." label="Skills och minne" onClose={onClose}>
-      <span className="label" style={{ padding: '6px 0 8px' }}>Skills</span>
-      {SKILLS.map((s) => (
-        <div key={s} className="lrow">
-          <span style={{ font: "500 14px var(--font-mono)", flex: 1 }}>/{s}</span>
+    <Sheet
+      eyebrow="Kalender · Ny händelse"
+      title="Lägg in i kalendern."
+      label="Ny händelse"
+      onClose={onClose}
+      footer={
+        <button type="submit" form="new-event" className="primary" disabled={!valid || saving}>
+          {saving ? 'Lägger in…' : 'Lägg in'} <Icon name="arrow" size={18} strokeWidth={2.2} />
+        </button>
+      }
+    >
+      <form id="new-event" className="event-form" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
+        <label className="label" htmlFor="event-title">Titel</label>
+        <input id="event-title" className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Vad händer?" autoFocus />
+        <label className="label" htmlFor="event-date">Datum</label>
+        <input id="event-date" className="input" type="date" value={day} onChange={(e) => setDay(e.target.value)} />
+        <div className="event-times">
+          <div>
+            <label className="label" htmlFor="event-start">Start</label>
+            <input
+              id="event-start"
+              className="input"
+              type="time"
+              value={start}
+              onChange={(e) => {
+                setStart(e.target.value);
+                if (end <= e.target.value) setEnd(hourLater(e.target.value));
+              }}
+            />
+          </div>
+          <div>
+            <label className="label" htmlFor="event-end">Slut</label>
+            <input id="event-end" className="input" type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
+          </div>
         </div>
-      ))}
-      <p className="empty" style={{ paddingTop: 20 }}>
-        Minnet och skills läses från Claude när agenten är kopplad. Här visas de du har just nu.
-      </p>
+        {end <= start && <p className="meta" role="alert">Slutet måste ligga efter starten.</p>}
+        <label className="label" htmlFor="event-location">Plats</label>
+        <input id="event-location" className="input" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Valfritt" />
+      </form>
     </Sheet>
   );
 }

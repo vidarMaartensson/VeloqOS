@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Huvudfönstret behöver inga Tauri-kommandon; dashboarden pratar bara med API:t över HTTP.",
+  "description": "Dashboarden pratar med API:t över HTTP. Enda Tauri-kommandot är appens eget restart_api.",
   "windows": ["main"],
   "permissions": ["core:default"]
 }

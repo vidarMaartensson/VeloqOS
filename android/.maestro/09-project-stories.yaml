@@ -1,0 +1,20 @@
+# Open Veloq OS under Projekt and see its VEL stories.
+# Needs the API's sample Linear (no Linear:ApiKeys; veloq-os is linked to VEL by default)
+appId: com.vidarmartensson.veloqos
+---
+- launchApp:
+    clearState: true
+- tapOn: "PROJEKT"
+# The header also says "Veloq OS", so open the project by its meta line.
+- scrollUntilVisible:
+    element: ".*React · \\.NET · Kotlin"
+    direction: DOWN
+- tapOn: ".*React · \\.NET · Kotlin"
+- assertVisible: "Veloq OS\\."
+- assertVisible: "Tillbaka"
+- scrollUntilVisible:
+    element: "STORIES · VEL"
+    direction: DOWN
+- scrollUntilVisible:
+    element: "VEL-\\d+"
+    direction: DOWN

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using VeloqOS.Api.Services;
 
 namespace VeloqOS.Api.Tests;
 
@@ -16,7 +17,22 @@ public class ApiTests : IClassFixture<ApiTests.Factory>
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
+            // "Testing" skips user-secrets, so a developer's real Google client stays out of the tests.
+            builder.UseEnvironment("Testing");
             builder.UseSetting("Auth:ApiKey", "");
+            builder.UseSetting("Google:ClientId", "");
+            builder.UseSetting("Google:TokenPath", Path.Combine(Path.GetTempPath(), $"veloq-test-{Guid.NewGuid()}.json"));
+            // Answer with EchoAgent instead of a developer's real Claude Code.
+            builder.UseSetting("Claude:Command", "");
+            // The keyword voice and the browser's speech, never a developer's real keys.
+            builder.UseSetting("Voice:AnthropicApiKey", "");
+            builder.UseSetting("Voice:ElevenLabsApiKey", "");
+            builder.UseSetting("Voice:DeepgramApiKey", "");
+            // Chores never look at the developer's real home, repos or skills.
+            builder.UseSetting("Veloq:Home", Path.Combine(Path.GetTempPath(), $"veloq-home-{Guid.NewGuid()}"));
+            builder.UseSetting("Veloq:ProjectsRoot", Path.Combine(Path.GetTempPath(), $"veloq-projects-{Guid.NewGuid()}"));
+            builder.UseSetting("Claude:SkillsFolder", Path.Combine(Path.GetTempPath(), $"veloq-skills-{Guid.NewGuid()}"));
+            builder.UseSetting("Veloq:DataFolder", Path.Combine(Path.GetTempPath(), $"veloq-data-{Guid.NewGuid()}"));
             builder.ConfigureServices(services => services.Replace(ServiceDescriptor.Singleton<TimeProvider>(Time)));
         }
     }
@@ -53,15 +69,18 @@ public class ApiTests : IClassFixture<ApiTests.Factory>
     [Fact]
     public async Task Running_a_chore_creates_a_job_that_finishes()
     {
+        // The chore now really runs (here through EchoAgent), so the test waits for it instead of moving the clock.
         var response = await _client.PostAsync("/api/chores/memory-cleanup/run", null);
         Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
         var job = await response.Content.ReadFromJsonAsync<Job>();
-        Assert.Equal("running", job!.Status);
+        Assert.Equal("Städa minnet", job!.Title);
 
-        _factory.Time.Advance(TimeSpan.FromMinutes(1));
+        await _factory.Services.GetRequiredService<JobService>().WhenDone(job.Id);
 
         var jobs = await _client.GetFromJsonAsync<List<Job>>("/api/jobs");
-        Assert.Equal("done", jobs!.Single(j => j.Id == job.Id).Status);
+        var done = jobs!.Single(j => j.Id == job.Id);
+        Assert.Equal("done", done.Status);
+        Assert.StartsWith("Uppfattat.", done.Result);
     }
 
     [Fact]
@@ -129,22 +148,70 @@ public class ApiTests : IClassFixture<ApiTests.Factory>
     }
 
     [Fact]
+    public async Task Events_can_be_added_to_the_calendar()
+    {
+        // Own server: connecting here must not leak into the not-connected-yet calendar test.
+        using var factory = new Factory();
+        var client = factory.CreateClient();
+        await client.PostAsync("/api/calendar/connect", null);
+        var start = new DateTimeOffset(2026, 11, 2, 10, 0, 0, TimeSpan.FromHours(1));
+
+        var created = await client.PostAsJsonAsync("/api/calendar/events", new NewCalendarEvent("  Tandläkare ", start, start.AddMinutes(45), "Sveavägen 1"));
+
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var calendarEvent = await created.Content.ReadFromJsonAsync<CalendarEvent>();
+        Assert.Equal("Tandläkare", calendarEvent!.Title);
+        var day = await client.GetFromJsonAsync<CalendarDay>("/api/calendar?date=2026-11-02");
+        Assert.Contains(day!.Events, e => e.Id == calendarEvent.Id && e.Location == "Sveavägen 1");
+    }
+
+    [Fact]
+    public async Task An_event_needs_a_title_and_must_end_after_it_starts()
+    {
+        var start = new DateTimeOffset(2026, 11, 2, 10, 0, 0, TimeSpan.FromHours(1));
+
+        var noTitle = await _client.PostAsJsonAsync("/api/calendar/events", new NewCalendarEvent(" ", start, start.AddHours(1), null));
+        var backwards = await _client.PostAsJsonAsync("/api/calendar/events", new NewCalendarEvent("Möte", start, start, null));
+
+        Assert.Equal(HttpStatusCode.BadRequest, noTitle.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, backwards.StatusCode);
+    }
+
+    [Fact]
+    public async Task Undoing_a_sent_reply_is_409()
+    {
+        await _client.PostAsJsonAsync("/api/inbox/m2/actions", new InboxActionRequest("reply", "Hej!"));
+
+        var undo = await _client.DeleteAsync("/api/inbox/m2/actions");
+
+        Assert.Equal(HttpStatusCode.Conflict, undo.StatusCode);
+    }
+
+    [Fact]
+    public async Task Google_reports_not_configured_without_a_client()
+    {
+        var status = await _client.GetFromJsonAsync<GoogleStatus>("/api/google");
+        var connect = await _client.PostAsync("/api/google/connect", null);
+
+        Assert.Equal(new GoogleStatus(false, false, null), status);
+        Assert.Equal(HttpStatusCode.Conflict, connect.StatusCode);
+    }
+
+    [Fact]
+    public async Task Google_callback_without_a_code_shows_a_page()
+    {
+        var page = await _client.GetAsync("/api/google/callback?error=access_denied");
+
+        Assert.Equal("text/html", page.Content.Headers.ContentType!.MediaType);
+        Assert.Contains("Inloggningen avbröts.", await page.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
     public async Task Bad_calendar_date_is_400()
     {
         var response = await _client.GetAsync("/api/calendar?date=29/10");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task Prompt_replies_and_rejects_empty_text()
-    {
-        var ok = await _client.PostAsJsonAsync("/api/prompt", new PromptRequest("Planera HaloDeck", "HaloDeck"));
-        var reply = await ok.Content.ReadFromJsonAsync<PromptResponse>();
-        Assert.Contains("HaloDeck", reply!.Reply);
-
-        var empty = await _client.PostAsJsonAsync("/api/prompt", new PromptRequest("  ", null));
-        Assert.Equal(HttpStatusCode.BadRequest, empty.StatusCode);
     }
 }
 
@@ -152,7 +219,8 @@ public class ApiKeyTests : IClassFixture<ApiKeyTests.Factory>
 {
     public sealed class Factory : WebApplicationFactory<Program>
     {
-        protected override void ConfigureWebHost(IWebHostBuilder builder) => builder.UseSetting("Auth:ApiKey", "hemlig");
+        protected override void ConfigureWebHost(IWebHostBuilder builder) =>
+            builder.UseEnvironment("Testing").UseSetting("Auth:ApiKey", "hemlig").UseSetting("Google:ClientId", "").UseSetting("Claude:Command", "");
     }
 
     private readonly HttpClient _client;

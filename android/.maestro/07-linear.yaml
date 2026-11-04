@@ -1,0 +1,16 @@
+# Linear tab against the API's sample stories (no Linear:ApiKey): list, then create a story.
+appId: com.vidarmartensson.veloqos
+---
+- launchApp:
+    clearState: true
+- tapOn: "Linear"
+- assertVisible: "LINEAR · VELOQ LABS · HAL"
+- assertVisible: "JOBBET"
+- assertVisible: ".*öppna stories\\."
+- tapOn: "Ny story"
+- tapOn: "Titel"
+- inputText: "Maestro-story"
+- hideKeyboard
+- tapOn: "Hög"
+- tapOn: "Skapa story"
+- assertVisible: "Maestro-story"

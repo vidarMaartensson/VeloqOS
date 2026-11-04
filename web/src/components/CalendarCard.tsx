@@ -9,9 +9,10 @@ interface Props {
   onConnect: () => void;
   onPickDate: (iso: string) => void;
   onBook: (id: string) => void;
+  onNew: () => void;
 }
 
-export function CalendarCard({ calendar, date, now, onConnect, onPickDate, onBook }: Props) {
+export function CalendarCard({ calendar, date, now, onConnect, onPickDate, onBook, onNew }: Props) {
   const connected = calendar?.connected ?? false;
 
   return (
@@ -26,10 +27,10 @@ export function CalendarCard({ calendar, date, now, onConnect, onPickDate, onBoo
           <div className="cal-icon"><Icon name="calendar" size={24} /></div>
           <span style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 600, letterSpacing: '-0.01em' }}>Se dagen här.</span>
           <span style={{ fontSize: 16, lineHeight: 1.5, color: 'var(--ink-body)' }}>
-            Koppla Google Kalender så visas dina möten, och Veloq OS kan föreslå fokustid åt dig.
+            Koppla Google så visas dina möten och din inkorg, och du kan lägga in händelser härifrån.
           </span>
           <button className="ghost" onClick={onConnect}>
-            Anslut Google Kalender <Icon name="arrow" size={18} strokeWidth={2} />
+            Anslut Google <Icon name="arrow" size={18} strokeWidth={2} />
           </button>
         </div>
       ) : (
@@ -79,6 +80,9 @@ export function CalendarCard({ calendar, date, now, onConnect, onPickDate, onBoo
               })}
             </ul>
           )}
+          <button className="ghost" style={{ alignSelf: 'flex-start' }} onClick={onNew}>
+            Ny händelse <Icon name="arrow" size={18} strokeWidth={2} />
+          </button>
         </>
       )}
     </section>

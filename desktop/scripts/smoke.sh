@@ -15,6 +15,7 @@ healthy() { curl -fsS "http://127.0.0.1:$1/api/health" 2>/dev/null | grep -q '"s
 PORT="${VELOQ_API_PORT:-7490}"
 healthy "$PORT" && fail "Ett Veloq-API kör redan på :$PORT – välj en annan port med VELOQ_API_PORT"
 
+BEFORE="$(pgrep -f 'claude -p --input-format stream-json' | wc -l | tr -d ' ')"
 VELOQ_API_PORT="$PORT" "$APP/Contents/MacOS/veloq-os" >/dev/null 2>&1 &
 PID=$!
 
@@ -25,6 +26,14 @@ echo "✓ appen startade API:t på :$PORT"
 curl -fsS -H "Origin: tauri://localhost" -D - -o /dev/null http://127.0.0.1:$PORT/api/overview \
     | grep -qi '^access-control-allow-origin: tauri://localhost' || fail "CORS släpper inte igenom tauri://localhost"
 echo "✓ CORS tillåter appens ursprung"
+
+curl -fsS http://127.0.0.1:$PORT/api/voice | grep -q '"agent":"claude-code"' || fail "rösten kör inte på Claude Code"
+echo "✓ rösten kör på Claude Code"
+
+voice_processes() { pgrep -f 'claude -p --input-format stream-json' | wc -l | tr -d ' '; }
+for _ in $(seq 1 10); do [[ "$(voice_processes)" -gt "$BEFORE" ]] && break; sleep 1; done
+[[ "$(voice_processes)" -gt "$BEFORE" ]] || fail "Claude Code hålls inte igång i bakgrunden"
+echo "✓ Claude Code hålls igång i bakgrunden"
 
 windows="$(osascript -e 'tell application "System Events" to count windows of (first process whose unix id is '"$PID"')' 2>/dev/null || echo "?")"
 if [[ "$windows" == "?" ]]; then
@@ -39,3 +48,7 @@ kill -TERM "$PID"
 for _ in $(seq 1 10); do healthy "$PORT" || break; sleep 1; done
 healthy "$PORT" && fail "API:t lever kvar efter att appen stängts"
 echo "✓ API:t stängdes med appen"
+
+for _ in $(seq 1 10); do [[ "$(voice_processes)" -le "$BEFORE" ]] && break; sleep 1; done
+[[ "$(voice_processes)" -le "$BEFORE" ]] || fail "Claude Code lever kvar efter att appen stängts"
+echo "✓ Claude Code stängdes med appen"

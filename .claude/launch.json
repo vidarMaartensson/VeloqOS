@@ -1,0 +1,38 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": [
+        "run",
+        "--project",
+        "api/src/VeloqOS.Api"
+      ],
+      "port": 7480
+    },
+    {
+      "name": "api-sample",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": [
+        "run",
+        "--project",
+        "api/src/VeloqOS.Api",
+        "--no-launch-profile"
+      ],
+      "port": 7480,
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Testing"
+      }
+    },
+    {
+      "name": "web",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "cd web && npm run dev"
+      ],
+      "port": 7470
+    }
+  ]
+}

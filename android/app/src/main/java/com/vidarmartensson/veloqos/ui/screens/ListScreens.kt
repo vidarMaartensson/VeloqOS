@@ -27,15 +27,18 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.vidarmartensson.veloqos.data.Chore
+import com.vidarmartensson.veloqos.data.ChoreKind
 import com.vidarmartensson.veloqos.data.Connection
 import com.vidarmartensson.veloqos.data.InboxAction
 import com.vidarmartensson.veloqos.data.InboxItem
-import com.vidarmartensson.veloqos.data.Project
+import com.vidarmartensson.veloqos.data.Job
 import com.vidarmartensson.veloqos.domain.Logic
 import com.vidarmartensson.veloqos.ui.UiState
 import com.vidarmartensson.veloqos.ui.components.CardHead
 import com.vidarmartensson.veloqos.ui.components.GhostButton
 import com.vidarmartensson.veloqos.ui.components.Label
+import com.vidarmartensson.veloqos.ui.components.LiveDot
 import com.vidarmartensson.veloqos.ui.components.Pill
 import com.vidarmartensson.veloqos.ui.components.PrimaryButton
 import com.vidarmartensson.veloqos.ui.components.ProgressLine
@@ -46,28 +49,10 @@ import com.vidarmartensson.veloqos.ui.theme.VeloqType
 import java.time.ZonedDateTime
 
 @Composable
-private fun ScreenTitle(eyebrow: String, title: String) {
+internal fun ScreenTitle(eyebrow: String, title: String) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
         Label(eyebrow, accent = true)
         Text(title, style = VeloqType.Display)
-    }
-}
-
-@Composable
-fun ProjectsScreen(projects: List<Project>, onPrompt: (Project) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        ScreenTitle("Projekt", "Allt som är på gång.")
-        projects.forEachIndexed { i, p ->
-            VCard {
-                Text("${(i + 1).toString().padStart(2, '0')} · ${p.meta}", style = VeloqType.Meta)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text(p.name, style = VeloqType.H3, modifier = Modifier.weight(1f))
-                    Pill(p.status)
-                }
-                Text(p.body, style = VeloqType.Body)
-                GhostButton("Prompta", { onPrompt(p) })
-            }
-        }
     }
 }
 
@@ -132,7 +117,8 @@ private fun MailDetail(item: InboxItem, now: ZonedDateTime, onBack: () -> Unit, 
         when {
             handled != null -> {
                 Text(Logic.result(handled), style = VeloqType.BodyStrong)
-                GhostButton("Ångra", { onUndo(item.id) })
+                // A sent reply cannot be taken back.
+                if (handled != InboxAction.Reply) GhostButton("Ångra", { onUndo(item.id) })
             }
             replying -> {
                 Label("Utkast")
@@ -185,51 +171,86 @@ private fun MailDetail(item: InboxItem, now: ZonedDateTime, onBack: () -> Unit, 
 fun MoreScreen(
     state: UiState,
     connection: Connection,
+    now: ZonedDateTime,
     onToggleRoutine: (String, Boolean) -> Unit,
+    onRunRoutine: (String) -> Unit,
     onRunChore: (String) -> Unit,
+    onToggleChoice: (jobId: String, choiceId: String) -> Unit,
+    onConfirmJob: (String) -> Unit,
     onSaveConnection: (Connection) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
         ScreenTitle("Mer", "Rutiner och chores.")
 
+        if (state.jobs.isNotEmpty() || state.jobError != null) {
+            VCard {
+                CardHead("Jobb", "${state.jobs.count { it.running }} körs")
+                state.jobError?.let { Text(it, style = VeloqType.Body.copy(color = Veloq.Danger)) }
+                state.jobs.forEach { job ->
+                    JobRow(job, state.ticked[job.id].orEmpty(), onToggle = { onToggleChoice(job.id, it) }, onConfirm = { onConfirmJob(job.id) })
+                }
+            }
+        }
+
         VCard {
             CardHead("Rutiner")
             state.routines.forEach { r ->
-                Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text(r.name, style = VeloqType.BodyStrong)
-                        Text(r.schedule, style = VeloqType.Meta)
+                val running = r.choreId?.let { state.choreState(it) }?.running == true
+                Column(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(r.name, style = VeloqType.BodyStrong)
+                            Text(r.schedule, style = VeloqType.Meta)
+                        }
+                        Toggle(r.enabled, "${r.name}", onChange = { onToggleRoutine(r.id, it) })
                     }
-                    Toggle(r.enabled, "${r.name}", onChange = { onToggleRoutine(r.id, it) })
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Box(Modifier.weight(1f)) { Logic.routineTimes(r, now)?.let { Label(it) } }
+                        GhostButton(if (running) "Kör…" else "Kör nu", { onRunRoutine(r.id) }, leading = if (running) ({ LiveDot() }) else null)
+                    }
                 }
             }
         }
 
         VCard {
             CardHead("Chores")
-            state.chores.forEach { chore ->
-                val job = state.choreState(chore.id)
-                Column(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Text(chore.name, style = VeloqType.BodyStrong)
-                            Text(
-                                when {
-                                    job == null -> "Redo · ${chore.estimate}"
-                                    job.running -> job.step
-                                    else -> job.result ?: "Klart."
-                                },
-                                style = VeloqType.Meta,
-                            )
-                        }
-                        GhostButton(if (job == null) "Kör" else if (job.running) "Kör…" else "Igen", { onRunChore(chore.id) })
-                    }
-                    ProgressLine(job?.progress ?: 0f)
-                }
+            Logic.builtins(state.chores).forEach { chore -> ChoreRow(chore, state.choreState(chore.id), onRunChore) }
+        }
+
+        val skills = Logic.skills(state.chores)
+        if (skills.isNotEmpty()) {
+            VCard {
+                CardHead("Dina skills", "${skills.size}")
+                skills.forEach { chore -> ChoreRow(chore, state.choreState(chore.id), onRunChore) }
             }
         }
 
         ConnectionCard(connection, onSaveConnection)
+    }
+}
+
+@Composable
+private fun ChoreRow(chore: Chore, job: Job?, onRun: (String) -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(chore.name, style = VeloqType.BodyStrong)
+                Text(
+                    when {
+                        job == null -> if (chore.kind == ChoreKind.Skill) chore.description else "Redo · ${chore.estimate}"
+                        job.running -> job.step
+                        job.failed -> "Misslyckades"
+                        job.waiting -> "Väntar på ditt val"
+                        else -> job.result?.lineSequence()?.firstOrNull() ?: "Klart."
+                    },
+                    style = VeloqType.Meta,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            GhostButton(if (job == null) "Kör" else if (job.running) "Kör…" else "Igen", { onRun(chore.id) })
+        }
+        ProgressLine(job?.progress ?: 0f)
     }
 }
 
@@ -247,7 +268,7 @@ private fun ConnectionCard(connection: Connection, onSave: (Connection) -> Unit)
 }
 
 @Composable
-private fun SettingField(label: String, value: String, onChange: (String) -> Unit) {
+internal fun SettingField(label: String, value: String, placeholder: String? = null, onChange: (String) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Label(label)
         BasicTextField(
@@ -263,6 +284,12 @@ private fun SettingField(label: String, value: String, onChange: (String) -> Uni
                 .border(1.dp, Veloq.LineStrong, Veloq.Pill)
                 .padding(horizontal = 20.dp, vertical = 14.dp)
                 .semantics { contentDescription = label },
+            decorationBox = { field ->
+                Box {
+                    if (value.isEmpty() && placeholder != null) Text(placeholder, style = VeloqType.Body.copy(color = Veloq.InkFaint))
+                    field()
+                }
+            },
         )
     }
 }

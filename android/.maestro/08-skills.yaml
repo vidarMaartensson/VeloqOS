@@ -1,0 +1,25 @@
+# A chore that needs a project: open its run dialog, pick Veloq OS and see the job on Home.
+# Needs the API's EchoAgent, not real Claude Code: dotnet run --project src/VeloqOS.Api -- --Claude:Command=
+# and the VeloqOS folder under Veloq:ProjectsRoot, so Veloq OS can be picked.
+appId: com.vidarmartensson.veloqos
+---
+- launchApp:
+    clearState: true
+- scrollUntilVisible:
+    element: "CHORES"
+    direction: DOWN
+# The API keeps earlier jobs, so the pill may already say "· klart".
+- tapOn: "Oanvända paket.*"
+- assertVisible: "Kör Oanvända paket\\."
+- tapOn: "Veloq OS"
+- tapOn: "Kör"
+- assertNotVisible: "Kör Oanvända paket\\."
+- scrollUntilVisible:
+    element: ".* · VELOQ OS"
+    direction: UP
+- assertVisible: "Oanvända paket"
+# Your skills (from ~/.claude/skills) sit next to the chores under Mer.
+- tapOn: "MER"
+- scrollUntilVisible:
+    element: "DINA SKILLS"
+    direction: DOWN

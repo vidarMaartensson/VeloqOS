@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Tauri merges this into the app's Info.plist. Without these texts macOS never lets the voice listen. -->
+<plist version="1.0">
+<dict>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Veloq OS lyssnar när du håller in knappen och pratar med röstassistenten.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>Veloq OS gör om det du säger till text åt röstassistenten.</string>
+</dict>
+</plist>

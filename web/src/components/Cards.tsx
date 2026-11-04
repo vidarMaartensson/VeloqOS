@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import type { Artifact, Job, Message, Overview } from '../state/types';
+import type { Artifact, Job, Overview } from '../state/types';
 import type { TimelineEntry } from '../lib/today';
 import { Icon, THUMBS } from './Icon';
+import { jobLine, waitsForChoice } from '../lib/chores';
 
 export function StatRow({ overview, onOpen }: { overview: Overview | null; onOpen: (what: 'projects' | 'jobs' | 'inbox' | 'routines' | 'artifacts') => void }) {
   const o = overview;
@@ -53,7 +53,7 @@ export function TodayCard({ entries, onOpenRoutines }: { entries: TimelineEntry[
   );
 }
 
-export function JobsCard({ jobs }: { jobs: Job[] }) {
+export function JobsCard({ jobs, onOpen }: { jobs: Job[]; onOpen: (job: Job) => void }) {
   const shown = jobs.slice(0, 3);
   return (
     <section className="card grow enter d3" aria-label="Pågående jobb">
@@ -65,57 +65,29 @@ export function JobsCard({ jobs }: { jobs: Job[] }) {
         <p className="empty">Inget körs just nu. Starta en chore i orbiten.</p>
       ) : (
         shown.map((j) => (
-          <div key={j.id} className="job">
+          <button key={j.id} className="job job-btn" onClick={() => onOpen(j)} aria-label={`Visa jobb: ${j.title}`}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              {j.status === 'running' ? <span className="live" /> : <Icon name="check" size={16} strokeWidth={1.8} />}
+              {j.status === 'running' ? (
+                <span className="live" />
+              ) : (
+                <Icon name={j.status === 'failed' ? 'close' : waitsForChoice(j) ? 'task' : 'check'} size={16} strokeWidth={1.8} />
+              )}
               <span style={{ fontSize: 16, fontWeight: 500 }}>{j.title}</span>
             </div>
-            <span className="meta">{j.result ?? j.step}</span>
+            <span className={j.status === 'failed' ? 'meta job-failed' : 'meta'}>{jobLine(j)}</span>
             <div className="track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(j.progress * 100)} aria-label={j.title}>
               <div style={{ transform: `scaleX(${j.progress})` }} />
             </div>
-          </div>
+          </button>
         ))
       )}
     </section>
   );
 }
 
-export function QuickPrompt({ messages, thinking, onSend }: { messages: Message[]; thinking: boolean; onSend: (text: string) => void }) {
-  const [text, setText] = useState('');
-  const last = [...messages].reverse().find((m) => m.role === 'assistant');
-  const submit = () => {
-    if (!text.trim()) return;
-    onSend(text);
-    setText('');
-  };
-  return (
-    <section className="card enter d3" aria-label="Snabbprompt">
-      <div className="card-head">
-        <span className="label">Snabbprompt</span>
-        <span className="pill">Plan först</span>
-      </div>
-      <p className="ellipsis" style={{ margin: 0, fontSize: 16, lineHeight: 1.55, color: 'var(--ink-body)', whiteSpace: 'normal', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>
-        {thinking ? 'Tänker…' : (last?.text ?? 'Fråga, planera eller be om en ändring. Svaret öppnas i promptpanelen.')}
-      </p>
-      <form
-        style={{ display: 'flex', gap: 10 }}
-        onSubmit={(e) => {
-          e.preventDefault();
-          submit();
-        }}
-      >
-        <label htmlFor="quick-prompt" className="sr-only">Prompt</label>
-        <input id="quick-prompt" className="input" placeholder="Be om något…" value={text} onChange={(e) => setText(e.target.value)} />
-        <button type="submit" className="primary icon" aria-label="Skicka"><Icon name="arrow" size={20} strokeWidth={2.2} /></button>
-      </form>
-    </section>
-  );
-}
+export const GROUPS = ['Alla', 'Veloq', 'Yagi', 'Jobb', 'Spel', 'Övrigt'];
 
-const GROUPS = ['Alla', 'Veloq', 'Yagi', 'Jobb', 'Spel', 'Övrigt'];
-
-const KIND_LABEL: Record<Artifact['kind'], string> = {
+export const KIND_LABEL: Record<Artifact['kind'], string> = {
   doc: 'Dokument',
   plan: 'Plan',
   map: 'Karta',
@@ -127,7 +99,7 @@ const KIND_LABEL: Record<Artifact['kind'], string> = {
   icon: 'Ikon',
 };
 
-export function ArtifactShelf({ artifacts, query, group, onGroup }: { artifacts: Artifact[]; query: string; group: string; onGroup: (g: string) => void }) {
+export function ArtifactShelf({ artifacts, query, group, onGroup, onSync, syncing = false }: { artifacts: Artifact[]; query: string; group: string; onGroup: (g: string) => void; onSync?: () => void; syncing?: boolean }) {
   const q = query.trim().toLowerCase();
   const shown = artifacts.filter((a) => (group === 'Alla' || a.group === group) && (!q || a.title.toLowerCase().includes(q)));
   return (
@@ -136,6 +108,9 @@ export function ArtifactShelf({ artifacts, query, group, onGroup }: { artifacts:
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
           <span className="label">Artefakter</span>
           <span className="meta">{shown.length} av {artifacts.length}</span>
+          {onSync && (
+            <button className="ghost small" onClick={onSync} disabled={syncing}>{syncing ? 'Synkar…' : 'Synka från claude.ai'}</button>
+          )}
         </div>
         <div className="shelf-filters" role="group" aria-label="Filtrera artefakter">
           {GROUPS.map((g) => (
