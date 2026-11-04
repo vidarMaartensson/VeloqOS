@@ -120,7 +120,7 @@ public class ClaudeCodeVoiceAgentTests(ApiTests.Factory factory) : IClassFixture
         var server = JsonDocument.Parse(File.ReadAllText(path)).RootElement.GetProperty("mcpServers").GetProperty("veloq");
         Assert.StartsWith("http://127.0.0.1:", server.GetProperty("url").GetString());
         Assert.Equal(factory.Services.GetRequiredService<VoiceMcpAccess>().Token, server.GetProperty("headers").GetProperty(VoiceMcpAccess.HeaderName).GetString());
-        Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(path));
+        if (!OperatingSystem.IsWindows()) Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(path));
     }
 
     [Fact]
