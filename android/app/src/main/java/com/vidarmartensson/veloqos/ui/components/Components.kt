@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
@@ -222,3 +223,26 @@ fun Mark(size: Int = 28) {
     }
 }
 
+
+/** Choice pill: ink fill when chosen, like the web's chips. */
+@Composable
+fun Chip(text: String, selected: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .heightIn(min = 44.dp)
+            .clip(Veloq.Pill)
+            .background(if (selected) Veloq.Ink else Veloq.Bg)
+            .border(1.dp, if (selected) Veloq.Ink else Veloq.LineStrong, Veloq.Pill)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .semantics { this.selected = selected }
+            .padding(horizontal = 16.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        val color = when {
+            selected -> Veloq.OnAccent
+            enabled -> Veloq.InkSoft
+            else -> Veloq.InkMuted
+        }
+        Text(text, style = VeloqType.BodyStrong.copy(color = color))
+    }
+}

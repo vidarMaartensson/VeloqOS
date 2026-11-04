@@ -3,7 +3,7 @@ appId: com.vidarmartensson.veloqos
 ---
 - launchApp:
     clearState: true
-- tapOn: "Anslut Google Kalender"
+- tapOn: "Anslut Google"
 - assertVisible: "Fokus · Halo Home motion"
 - tapOn: "Boka"
 - assertNotVisible: "Boka"

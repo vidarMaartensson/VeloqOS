@@ -22,7 +22,7 @@ Instruktioner för Claude (och andra agenter) som jobbar i det här repot.
 ## Arkitektur i korthet
 
 - API:t äger all data och all kontakt med omvärlden (Claude, Gmail, Google Kalender). Klienterna pratar bara med API:t.
-- Varje integration ligger bakom ett interface i `api/src/VeloqOS.Api/Integrations/` (`IAgent`, `IInboxProvider`, `ICalendarProvider`). Exempel-implementationerna heter `Sample…`/`Echo…`; riktiga implementationer registreras i `Program.cs` när de finns.
+- Varje integration ligger bakom ett interface i `api/src/VeloqOS.Api/Integrations/` (`IAgent`, `IVoiceAgent`, `IInboxProvider`, `ICalendarProvider`, `ILinearProvider`). Exempel-implementationerna heter `Sample…`/`Echo…`; riktiga implementationer registreras i `Program.cs` när de finns.
 - Tid går genom `TimeProvider` så att jobb och kalender kan testas deterministiskt.
 - Telefonen autentiserar med headern `X-Veloq-Key` (se `Auth:ApiKey` i `appsettings`). Tom nyckel = ingen kontroll (bara för lokal utveckling).
 
@@ -35,7 +35,7 @@ Allt UI följer Veloq Labs design system (tokens i `web/src/styles/tokens.css` o
 - Rörelse med fjädrar och överslag; respektera `prefers-reduced-motion` / systemets animationsinställning.
 - Ingen emoji, ingen gradient, inga Inter/Roboto. Space Grotesk + JetBrains Mono.
 - Text: svenska i gränssnittet, rubriker som hela meningar med punkt, etiketter i versaler mono med ` · ` mellan delar, tankstreck med mellanslag ( – ), aldrig långt tankstreck.
-- Webben är variant C (orbit-dashboard), telefonen variant A (klassisk med kalender). Prototyperna finns i Design-canvasen "Veloq OS" på claude.ai.
+- Webben är röstdashboarden (portalen i mitten, GSAP-paneler runt), telefonen variant A (klassisk med kalender). Prototyperna finns i Design-canvasen "Veloq OS" på claude.ai.
 
 ## Får inte
 

@@ -111,7 +111,9 @@ export function InboxView({ items, now, initialId, onAct, onUndo, onClearNoise, 
                 <div className="result" role="status">
                   <Icon name="check" size={22} strokeWidth={1.8} />
                   <span style={{ flex: 1 }}>{actionInfo(selected.handledWith).result}</span>
-                  <button className="ghost" style={{ minHeight: 40 }} onClick={() => onUndo(selected.id)}>Ångra</button>
+                  {selected.handledWith !== 'reply' && (
+                    <button className="ghost" style={{ minHeight: 40 }} onClick={() => onUndo(selected.id)}>Ångra</button>
+                  )}
                 </div>
               ) : replying ? (
                 <div className="enter" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

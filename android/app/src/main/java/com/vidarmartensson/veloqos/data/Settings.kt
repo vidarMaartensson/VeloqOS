@@ -2,11 +2,14 @@ package com.vidarmartensson.veloqos.data
 
 import android.content.Context
 import android.os.Build
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import java.time.OffsetDateTime
 
 private val Context.dataStore by preferencesDataStore(name = "veloq_settings")
 
@@ -16,6 +19,8 @@ data class Connection(val baseUrl: String, val apiKey: String)
 class SettingsStore(private val context: Context) {
     private val urlKey = stringPreferencesKey("base_url")
     private val apiKeyKey = stringPreferencesKey("api_key")
+    private val lastSeenKey = stringPreferencesKey("last_seen_finished_at")
+    private val askedKey = booleanPreferencesKey("asked_notifications")
 
     val connection: Flow<Connection> = context.dataStore.data.map {
         Connection(it[urlKey] ?: DEFAULT_URL, it[apiKeyKey] ?: "")
@@ -26,6 +31,21 @@ class SettingsStore(private val context: Context) {
             it[urlKey] = connection.baseUrl.trim()
             it[apiKeyKey] = connection.apiKey.trim()
         }
+    }
+
+    /** The newest job finishedAt already notified about (or seen in the open app); null before the first check. */
+    suspend fun lastSeenFinishedAt(): OffsetDateTime? =
+        context.dataStore.data.first()[lastSeenKey]?.let { runCatching { OffsetDateTime.parse(it) }.getOrNull() }
+
+    suspend fun saveLastSeenFinishedAt(time: OffsetDateTime) {
+        context.dataStore.edit { it[lastSeenKey] = time.toString() }
+    }
+
+    /** Whether the app has asked for the notification permission – it asks once. */
+    suspend fun askedNotifications(): Boolean = context.dataStore.data.first()[askedKey] ?: false
+
+    suspend fun markAskedNotifications() {
+        context.dataStore.edit { it[askedKey] = true }
     }
 
     companion object {

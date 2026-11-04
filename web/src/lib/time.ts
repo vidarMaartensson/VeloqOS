@@ -5,6 +5,7 @@ const TZ = 'Europe/Stockholm';
 export function greeting(now: Date): string {
   const hour = Number(new Intl.DateTimeFormat('sv-SE', { hour: 'numeric', hour12: false, timeZone: TZ }).format(now));
   if (hour < 10) return 'God morgon';
+  if (hour < 12) return 'God förmiddag';
   if (hour < 18) return 'God eftermiddag';
   return 'God kväll';
 }
@@ -19,6 +20,22 @@ export function dateLabel(now: Date): string {
 /** yyyy-MM-dd in Stockholm time. */
 export function isoDate(date: Date): string {
   return new Intl.DateTimeFormat('sv-SE', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: TZ }).format(date);
+}
+
+/** "+01:00" or "+02:00": Stockholm's offset from UTC at that instant. */
+function offsetAt(instant: Date): string {
+  const name = new Intl.DateTimeFormat('en-US', { timeZone: TZ, timeZoneName: 'longOffset' })
+    .formatToParts(instant)
+    .find((p) => p.type === 'timeZoneName')!.value;
+  return name === 'GMT' ? '+00:00' : name.slice(3);
+}
+
+/** "2026-10-30" + "09:00" read as Stockholm time → "2026-10-30T09:00:00+01:00". */
+export function stockholmIso(date: string, time: string): string {
+  const asUtc = new Date(`${date}T${time}:00Z`);
+  const [h, m] = offsetAt(asUtc).slice(1).split(':').map(Number);
+  // The offset at the real instant, which differs from the guess only around a DST switch.
+  return `${date}T${time}:00${offsetAt(new Date(asUtc.getTime() - (h * 60 + m) * 60_000))}`;
 }
 
 /** "08:30" in Stockholm time. */
@@ -85,3 +102,12 @@ export function relativeDay(iso: string, now: Date): string {
 }
 
 const startOfDay = (d: Date) => new Date(isoDate(d) + 'T00:00:00').getTime();
+
+/** When something runs next, from now's point of view: "i dag 16:30", "i morgon 07:40" or "sön 20:00". */
+export function upcoming(iso: string, now: Date): string {
+  const days = Math.round((startOfDay(new Date(iso)) - startOfDay(now)) / 86_400_000);
+  if (days === 0) return `i dag ${clock(iso)}`;
+  if (days === 1) return `i morgon ${clock(iso)}`;
+  const name = new Intl.DateTimeFormat('sv-SE', { weekday: 'short', timeZone: TZ }).format(new Date(iso)).replace('.', '');
+  return `${name} ${clock(iso)}`;
+}

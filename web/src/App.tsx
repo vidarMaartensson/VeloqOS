@@ -1,16 +1,36 @@
-import { useEffect, useMemo, useState } from 'react';
-import type { Api } from './api/client';
-import { ArtifactShelf, JobsCard, QuickPrompt, StatRow, TodayCard } from './components/Cards';
-import { CalendarCard } from './components/CalendarCard';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { api as defaultApi, type Api } from './api/client';
+import type { VoiceConfirm, VoiceTurn } from './api/types';
+import { JobsCard } from './components/Cards';
+import { JobSheet, RunSheet, SkillsSheet } from './components/Chores';
 import { Icon, Mark, type IconName } from './components/Icon';
 import { InboxView } from './components/InboxView';
-import { Orbit } from './components/Orbit';
-import { MemorySheet, PromptSheet, RoutinesSheet } from './components/Sheets';
-import { buildTimeline } from './lib/today';
-import { clock, dateLabel, greeting, isoDate } from './lib/time';
+import { LinearView } from './components/LinearView';
+import { BriefCard, CiCard, DiskBadge, ProjectSheet } from './components/Projects';
+import { NewEventSheet, RoutinesSheet } from './components/Sheets';
+import { ArtifactTile } from './components/tiles/ArtifactTile';
+import { CalendarTile } from './components/tiles/CalendarTile';
+import { DiskTile } from './components/tiles/DiskTile';
+import { InboxTile } from './components/tiles/InboxTile';
+import { KpiStrip, type Kpi } from './components/tiles/KpiStrip';
+import { LinearTile } from './components/tiles/LinearTile';
+import { SkillsTile } from './components/tiles/SkillsTile';
+import { PortalContext, type PortalHandle } from './components/voice/Portal';
+import { VoiceCore } from './components/voice/VoiceCore';
+import { VoiceSettingsSheet } from './components/voice/VoiceSettingsSheet';
+import { needsRunSheet } from './lib/chores';
+import { beam, flash, gsap, reducedMotion, tileEl } from './lib/motion';
+import { desktopRestart } from './lib/desktop';
+import { say } from './lib/speech';
+import { dateLabel, greeting, isoDate } from './lib/time';
+import { columnOf } from './lib/voice';
+import { useLinear } from './state/useLinear';
+import { useStories } from './state/useStories';
 import { useVeloq } from './state/useVeloq';
+import { useVoice } from './state/useVoice';
+import type { Chore, LinearIssue, Project } from './state/types';
 
-type Panel = 'prompt' | 'inbox' | 'routines' | 'memory' | null;
+type Panel = 'inbox' | 'linear' | 'routines' | 'skills' | 'run' | 'job' | 'project' | 'event' | 'voice' | null;
 
 /** Re-renders every minute so greetings, "now" markers and past events stay right. */
 function useNow() {
@@ -22,37 +42,117 @@ function useNow() {
   return now;
 }
 
-export default function App({ api }: { api?: Api }) {
+/** A line from Rick (or the plain assistant) at the bottom of the screen, for a few seconds. */
+function Toast({ toast }: { toast: { text: string; id: number } | null }) {
+  const el = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (!el.current || !toast || reducedMotion()) return;
+    gsap.fromTo(el.current, { y: 30, opacity: 0, scale: 0.9 }, { y: 0, opacity: 1, scale: 1, duration: 0.6, ease: 'back.out(2)' });
+  }, [toast]);
+  if (!toast) return null;
+  return <div ref={el} className="toast" role="status">{toast.text}</div>;
+}
+
+/** Which data a voice tool's panel needs read again. */
+const REFRESH = { calendar: 'calendar', inbox: 'inbox', disk: 'jobs', skills: 'jobs', artifacts: 'artifacts' } as const;
+
+/** `restartApi` is the Mac app's sidecar restart; undefined in a plain browser. */
+export default function App({ api = defaultApi, restartApi = desktopRestart() }: { api?: Api; restartApi?: () => Promise<void> }) {
   const { state, actions } = useVeloq(api);
-  const now = useNow();
   const [panel, setPanel] = useState<Panel>(null);
-  const [query, setQuery] = useState('');
-  const [group, setGroup] = useState('Alla');
-  const [promptContext, setPromptContext] = useState('Fritt');
+  const linear = useLinear(panel === 'linear', api);
+  const veloqTeam = state.projects.find((p) => p.id === 'veloq-os')?.linearTeam ?? null;
+  const board = useLinear(true, api, { showDone: true, preferKey: veloqTeam });
+  const portal = useRef<PortalHandle | null>(null);
+  const [voicePulse, setVoicePulse] = useState(0);
+  const [toast, setToast] = useState<{ text: string; id: number } | null>(null);
+  const [inboxId, setInboxId] = useState<string | undefined>(undefined);
 
-  const timeline = useMemo(
-    () =>
-      buildTimeline(
-        state.routines,
-        state.calendar?.connected && state.calendarDate === isoDate(now) ? state.calendar.events : [],
-        now,
-        clock(now.toISOString()),
-      ),
-    [state.routines, state.calendar, state.calendarDate, now],
+  const showToast = useCallback((text: string) => setToast({ text, id: Date.now() }), []);
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 3600);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  /** Beams to every panel the voice's tools touched, and reads those panels again. */
+  const onTurn = useCallback(
+    (turn: VoiceTurn) => {
+      const tiles = [...new Set(turn.actions.filter((a) => a.ok).map((a) => a.tile))];
+      tiles.forEach((tile, i) => window.setTimeout(() => beam(portal.current?.el() ?? null, tile), i * 220));
+      const parts = tiles.flatMap((t) => (t in REFRESH ? [REFRESH[t as keyof typeof REFRESH]] : []));
+      void actions.refresh(turn.confirm ? [...parts, 'jobs'] : parts);
+      if (tiles.includes('linear')) {
+        setVoicePulse((p) => p + 1);
+        void board.actions.reload();
+      }
+      if (tiles.includes('projects')) void actions.refreshExtras(true);
+    },
+    [actions, board.actions],
   );
+  const voice = useVoice(api, onTurn);
+  const rick = voice.state.settings.persona === 'rick';
 
-  const rail: { key: Exclude<Panel, null> | 'home'; label: string; icon: IconName }[] = [
+  const jump = (tile: string) => {
+    const el = tileEl(tile);
+    el?.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'center' });
+    window.setTimeout(() => flash(el), 300);
+  };
+
+  const confirmVoice = async (confirm: VoiceConfirm) => {
+    const problem = await actions.confirmJob(confirm.jobId, confirm.choices.map((c) => c.id));
+    voice.actions.dismissConfirm();
+    showToast(problem ?? (rick ? 'Rensar. Försök att inte fylla den igen innan fredag.' : 'Rensar.'));
+  };
+  const [restart, setRestart] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
+  const now = useNow();
+  const [query, setQuery] = useState('');
+  const [runChoreId, setRunChoreId] = useState<string | null>(null);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const openProject = state.projects.find((p) => p.id === projectId);
+  const stories = useStories(panel === 'project' ? projectId : null, !!openProject?.linearTeam, api);
+
+
+  const rail: { key: Exclude<Panel, 'run' | 'job' | 'project' | 'event' | null> | 'home'; label: string; icon: IconName }[] = [
     { key: 'home', label: 'Översikt', icon: 'home' },
-    { key: 'prompt', label: 'Prompt', icon: 'chat' },
     { key: 'inbox', label: 'Inkorg', icon: 'mail' },
+    { key: 'linear', label: 'Linear', icon: 'stories' },
     { key: 'routines', label: 'Rutiner', icon: 'clock' },
-    { key: 'memory', label: 'Minne', icon: 'layers' },
+    { key: 'skills', label: 'Skills', icon: 'skill' },
   ];
 
-  const send = (text: string) => {
-    setPanel('prompt');
-    actions.send(text, promptContext === 'Fritt' ? undefined : promptContext);
+  const restartAndReload = async () => {
+    if (!restartApi) return;
+    setRestart({ busy: true, error: null });
+    try {
+      await restartApi();
+      setRestart({ busy: false, error: null });
+      await actions.reload();
+    } catch (e) {
+      setRestart({ busy: false, error: e instanceof Error ? e.message : String(e) });
+    }
   };
+
+  /** Runs a chore on a tap, or opens the run sheet when it takes a project or an addition. */
+  const startChore = (chore: Chore) => {
+    if (needsRunSheet(chore)) {
+      setRunChoreId(chore.id);
+      setPanel('run');
+    } else {
+      void actions.runChore(chore.id);
+      if (panel === 'skills') setPanel(null);
+    }
+  };
+  const runChore = state.chores.find((c) => c.id === runChoreId);
+  const choreRunning = (id: string) => state.jobs.some((j) => j.choreId === id && j.status === 'running');
+
+  const showProject = (project: Project) => {
+    setProjectId(project.id);
+    setPanel('project');
+  };
+
+  const openJob = state.jobs.find((j) => j.id === jobId);
 
   return (
     <div className="shell">
@@ -69,13 +169,22 @@ export default function App({ api }: { api?: Api }) {
             {r.label}
           </button>
         ))}
-        <a className="rail-btn" href="#shelf">
+        <button className="rail-btn" aria-current={panel === 'voice'} onClick={() => setPanel('voice')}>
+          <span className="ico"><Icon name="mic" /></span>
+          Röst
+        </button>
+        <a className="rail-btn" href="#artifacts" onClick={(e) => { e.preventDefault(); jump('artifacts'); }}>
           <span className="ico"><Icon name="shelf" /></span>
           Artefakter
         </a>
         <div className="rail-status">
           <span className={state.error ? '' : 'live'} style={state.error ? { width: 8, height: 8, borderRadius: '50%', border: '1px solid var(--danger)' } : undefined} />
           {state.error ? 'Offline' : 'Online'}
+          {restartApi && (
+            <button className="rail-restart" onClick={restartAndReload} disabled={restart.busy} aria-label="Starta om API:t">
+              <Icon name="sync" size={18} />
+            </button>
+          )}
         </div>
       </nav>
 
@@ -91,76 +200,168 @@ export default function App({ api }: { api?: Api }) {
               <label htmlFor="search" className="sr-only">Sök projekt och artefakter</label>
               <input id="search" placeholder="Sök projekt och artefakter…" value={query} onChange={(e) => setQuery(e.target.value)} />
             </div>
+            <DiskBadge system={state.system} onClean={() => void actions.runChore('disk-cleanup')} />
             <div className="conn"><span className="live" />Dator · telefon</div>
           </div>
         </header>
 
-        {state.error && (
-          <div role="alert" className="card" style={{ flexDirection: 'row', alignItems: 'center', padding: '14px 20px' }}>
-            <span style={{ flex: 1, color: 'var(--danger)', fontSize: 15 }}>
-              Kunde inte nå Veloq OS-API:t. Kör <code>dotnet run</code> i api/ och ladda om. ({state.error})
+        {(state.error || restart.busy || restart.error) && (
+          <div role="alert" className="card" style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: '14px 20px', flexWrap: 'wrap' }}>
+            <span style={{ flex: 1, color: restart.busy ? 'var(--ink-body)' : 'var(--danger)', fontSize: 15 }}>
+              {restart.busy
+                ? 'Startar om API:t…'
+                : restart.error
+                  ? `Omstarten misslyckades – ${restart.error}`
+                  : restartApi
+                    ? `Kunde inte nå Veloq OS-API:t. (${state.error})`
+                    : <>Kunde inte nå Veloq OS-API:t. Kör <code>dotnet run</code> i api/ och ladda om. ({state.error})</>}
             </span>
-            <button className="ghost" onClick={actions.dismissError}>Stäng</button>
+            {restartApi && !restart.busy && (
+              <button className="primary" onClick={restartAndReload}>Starta om API:t</button>
+            )}
+            {!restart.busy && (
+              <button className="ghost" onClick={() => { actions.dismissError(); setRestart({ busy: false, error: null }); }}>Stäng</button>
+            )}
           </div>
         )}
 
-        <StatRow
-          overview={state.overview}
-          onOpen={(what) => {
-            if (what === 'inbox') setPanel('inbox');
-            else if (what === 'routines') setPanel('routines');
-            else if (what === 'jobs') setPanel('prompt');
-            else if (what === 'artifacts') document.getElementById('shelf')?.scrollIntoView({ behavior: 'smooth' });
-          }}
-        />
+        <KpiStrip items={kpis(state, board.state.issues, now)} onJump={jump} />
 
-        <div className="grid">
-          <div className="col">
-            <TodayCard entries={timeline} onOpenRoutines={() => setPanel('routines')} />
-            <JobsCard jobs={state.jobs} />
-          </div>
-          <Orbit
-            projects={state.projects}
-            chores={state.chores}
-            jobs={state.jobs}
-            query={query}
-            onRunChore={actions.runChore}
-            onPromptProject={(p) => {
-              setPromptContext(p.name);
-              setPanel('prompt');
-            }}
-          />
-          <div className="col">
-            <QuickPrompt messages={state.messages} thinking={state.thinking} onSend={send} />
-            <CalendarCard
+        <PortalContext.Provider value={portal}>
+          <div className="board">
+            <CalendarTile
               calendar={state.calendar}
               date={state.calendarDate}
               now={now}
-              onConnect={actions.connectCalendar}
+              rick={rick}
               onPickDate={actions.showDate}
+              onConnect={actions.connectCalendar}
               onBook={actions.book}
+              onNew={() => setPanel('event')}
+              onMove={(e, start, end) => actions.moveEvent(e.id, start, end)}
+              onToast={showToast}
             />
+            <VoiceCore
+              voice={voice.state}
+              portalRef={portal}
+              onAsk={voice.actions.ask}
+              onHold={voice.actions.hold}
+              onRelease={voice.actions.release}
+              onStop={voice.actions.stop}
+              onSettings={() => setPanel('voice')}
+              onConfirm={confirmVoice}
+              onDismissConfirm={voice.actions.dismissConfirm}
+              onShowDisk={() => jump('disk')}
+            />
+            <DiskTile
+              system={state.system}
+              jobs={state.jobs}
+              rick={rick}
+              onScan={() => void actions.runChore('disk-cleanup')}
+              onConfirm={async (jobId, choices) => {
+                const problem = await actions.confirmJob(jobId, choices);
+                if (!problem && voice.state.confirm?.jobId === jobId) voice.actions.dismissConfirm();
+                return problem;
+              }}
+              onToast={showToast}
+            />
+            <InboxTile
+              items={state.inbox}
+              now={now}
+              rick={rick}
+              onAct={(id, action) => void actions.act(id, action)}
+              onOpen={(id) => { setInboxId(id); setPanel('inbox'); }}
+              onOpenAll={() => { setInboxId(undefined); setPanel('inbox'); }}
+            />
+            <ArtifactTile artifacts={state.artifacts} query={query} syncing={choreRunning('sync-artifacts')} onSync={() => void actions.runChore('sync-artifacts')} />
+            <LinearTile
+              state={board.state}
+              rick={rick}
+              voicePulse={voicePulse}
+              onPickTeam={board.actions.pickTeam}
+              onMove={board.actions.move}
+              onCreate={board.actions.create}
+              onOpenAll={() => setPanel('linear')}
+              onToast={showToast}
+            />
+            <SkillsTile chores={state.chores} jobs={state.jobs} onRun={startChore} onOpenAll={() => setPanel('skills')} />
           </div>
-        </div>
+        </PortalContext.Provider>
 
-        <ArtifactShelf artifacts={state.artifacts} query={query} group={group} onGroup={setGroup} />
+        <div className="lower">
+          <BriefCard brief={state.brief} now={now} onWrite={() => void actions.runRoutine('morning-brief')} />
+          <JobsCard jobs={state.jobs} onOpen={(j) => { setJobId(j.id); setPanel('job'); }} />
+          <CiCard projects={state.projects} statuses={state.statuses} onOpen={showProject} />
+        </div>
       </main>
 
-      {panel === 'prompt' && (
-        <PromptSheet context={promptContext} messages={state.messages} thinking={state.thinking} onSend={send} onClose={() => setPanel(null)} />
+      {panel === 'project' && openProject && (
+        <ProjectSheet
+          key={openProject.id}
+          project={openProject}
+          status={state.statuses.find((s) => s.projectId === openProject.id)}
+          stories={stories}
+          onClose={() => setPanel(null)}
+        />
       )}
       {panel === 'inbox' && (
         <InboxView
           items={state.inbox}
           now={now}
+          initialId={inboxId}
           onAct={actions.act}
           onUndo={actions.undo}
           onClearNoise={actions.clearNoise}
           onClose={() => setPanel(null)}
         />
       )}
-      {panel === 'routines' && <RoutinesSheet routines={state.routines} onToggle={actions.setRoutine} onClose={() => setPanel(null)} />}
-      {panel === 'memory' && <MemorySheet onClose={() => setPanel(null)} />}
+      {panel === 'linear' && (
+        <LinearView
+          state={linear.state}
+          onPickTeam={linear.actions.pickTeam}
+          onShowDone={linear.actions.setShowDone}
+          onCreate={linear.actions.create}
+          onClose={() => setPanel(null)}
+        />
+      )}
+      {panel === 'routines' && <RoutinesSheet routines={state.routines} now={now} onToggle={actions.setRoutine} onRun={(id) => void actions.runRoutine(id)} onClose={() => setPanel(null)} />}
+      {panel === 'skills' && <SkillsSheet chores={state.chores} onPick={startChore} onClose={() => setPanel(null)} />}
+      {panel === 'run' && runChore && (
+        <RunSheet key={runChore.id} chore={runChore} projects={state.projects} onRun={actions.runChore} onClose={() => setPanel(null)} />
+      )}
+      {panel === 'job' && openJob && (
+        <JobSheet key={openJob.id} job={openJob} onConfirm={actions.confirmJob} onClose={() => setPanel(null)} />
+      )}
+      {panel === 'voice' && (
+        <VoiceSettingsSheet
+          settings={voice.state.settings}
+          status={voice.state.status}
+          onChange={voice.actions.setSettings}
+          onTest={() => void say(
+            rick ? 'Det här är jag. *rap* Imponerad? Det borde du vara.' : 'Så här låter jag. Säg till om du vill ändra något.',
+            voice.state.settings,
+            voice.state.status?.speech.speak === 'elevenlabs' ? api.speak : undefined,
+          )}
+          onClose={() => setPanel(null)}
+        />
+      )}
+      {panel === 'event' && <NewEventSheet date={state.calendarDate} now={now} onCreate={actions.addEvent} onClose={() => setPanel(null)} />}
+      <svg id="beams" className="beams" aria-hidden="true" />
+      <Toast toast={toast} />
     </div>
   );
+}
+
+/** The numbers across the top. Meetings left today come from the calendar when it shows today. */
+function kpis(state: ReturnType<typeof useVeloq>['state'], issues: LinearIssue[], now: Date): Kpi[] {
+  const today = state.calendar?.connected && state.calendarDate === isoDate(now);
+  const meetings = today ? state.calendar!.events.filter((e) => !e.suggested && new Date(e.end) > now).length : null;
+  const free = state.system ? Math.round(state.system.disk.free / 1024 ** 3) : null;
+  return [
+    { key: 'meetings', label: 'Möten kvar', value: meetings, tile: 'calendar' },
+    { key: 'inbox', label: 'Behöver dig', value: state.overview?.inboxNeedsYou ?? null, tile: 'inbox' },
+    { key: 'linear', label: 'Öppna stories', value: issues.filter((i) => { const c = columnOf(i.state.type); return c !== null && c !== 'done'; }).length, tile: 'linear' },
+    { key: 'disk', label: 'Ledigt', value: free, unit: 'GB', tile: 'disk' },
+    { key: 'jobs', label: 'Jobb kör', value: state.overview?.runningJobs ?? null, tile: 'skills' },
+  ];
 }

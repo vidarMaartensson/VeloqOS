@@ -1,8 +1,10 @@
+using VeloqOS.Api.Services;
+
 namespace VeloqOS.Api.Data;
 
 /// <summary>
-/// The first version's data. Projects and artifacts are real (Vidar's own), chores and routines
-/// are the defaults from the design. Move to a file or SQLite once they need to be editable.
+/// The first version's data. Projects and artifacts are real (Vidar's own), routines are the
+/// defaults from the design. Chores live in <see cref="Services.Chores.ChoreCatalog"/>. Move to a file or SQLite once they need to be editable.
 /// </summary>
 public static class SampleData
 {
@@ -21,22 +23,34 @@ public static class SampleData
         new("quizter", "Quizter", "Musikquiz · SwiftUI + Kotlin", "På paus", 1, "Musikquiz mot Spotify, byggt med en vän.", "Appar"),
     ];
 
-    public static readonly IReadOnlyList<Chore> Chores =
-    [
-        new("memory-cleanup", "Städa minnet", "Slår ihop dubbletter, rensar gamla rader och uppdaterar beskrivningar.", "memory", "≈ 1 min", TimeSpan.FromSeconds(8)),
-        new("sync-projects", "Synka projekt", "Läser repon och uppdaterar status och nästa steg för varje projekt.", "sync", "≈ 2 min", TimeSpan.FromSeconds(12)),
-        new("claude-md", "Uppdatera CLAUDE.md", "Jämför CLAUDE.md mot koden och föreslår ändringar som du godkänner.", "doc", "≈ 2 min", TimeSpan.FromSeconds(12)),
-        new("clear-inbox", "Rensa inkorgen", "Arkiverar brus och lämnar bara det som behöver dig.", "inbox", "≈ 1 min", TimeSpan.FromSeconds(6)),
-        new("dependencies", "Kolla beroenden", "Letar efter föråldrade paket och säkerhetsvarningar i alla repon.", "package", "≈ 3 min", TimeSpan.FromSeconds(16)),
-        new("week-summary", "Veckosammanfattning", "Skriver ihop veckan i en kort sida du kan läsa på telefonen.", "calendar", "≈ 1 min", TimeSpan.FromSeconds(8)),
-    ];
+    /// <summary>Folder under <c>Veloq:ProjectsRoot</c> for the projects that have a repo.</summary>
+    public static readonly IReadOnlyDictionary<string, string> RepoFolders = new Dictionary<string, string>
+    {
+        ["halodeck"] = "HaloDeck",
+        ["veloq-os"] = "VeloqOS",
+        ["halo-home"] = "HaloHome",
+        ["halo-type"] = "HaloType",
+        ["arcguard"] = "Arcguard",
+        ["frontyard"] = "FrontYard",
+    };
 
-    public static readonly IReadOnlyList<Routine> Routines =
+    /// <summary>The Linear team key for the projects that have one. <c>Veloq:LinearTeams:&lt;id&gt;</c> overrides it.</summary>
+    public static readonly IReadOnlyDictionary<string, string> LinearTeams = new Dictionary<string, string>
+    {
+        ["veloq-os"] = "VEL",
+        ["halodeck"] = "HAL",
+    };
+
+    private static readonly DayOfWeek[] Weekdays = [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday];
+    private static readonly DayOfWeek[] EveryDay = Enum.GetValues<DayOfWeek>();
+
+    public static readonly IReadOnlyList<RoutinePlan> Routines =
     [
-        new("morning-brief", "Morgonbrief", "Vardagar · 07:40", "Kalender, inkorg och projektstatus i en sida innan du börjar.", true),
-        new("inbox-review", "Inkorgsgenomgång", "Dagligen · 16:30", "Sorterar Gmail, skriver utkast och flaggar det som behöver dig.", true),
-        new("memory-cleanup", "Minnesstädning", "Söndagar · 20:00", "Slår ihop dubbletter och rensar inaktuella rader i minnet.", true),
-        new("week-review", "Veckorevy", "Fredagar · 15:00", "Vad som byggts, vad som fastnat och förslag på nästa vecka.", false),
+        new(new("morning-brief", "Morgonbrief", "Vardagar · 07:40", "Kalender, inkorg, stories och projektstatus i en kort text innan du börjar.", true, "morning-brief"), Weekdays, new(7, 40)),
+        new(new("artifact-sync", "Synka artefakter", "Dagligen · 07:30", "Hämtar dina artefakter från claude.ai till hyllan.", true, "sync-artifacts"), EveryDay, new(7, 30)),
+        new(new("inbox-review", "Inkorgsgenomgång", "Dagligen · 16:30", "Arkiverar brus i inkorgen och lämnar det som behöver dig.", true, "clear-inbox"), EveryDay, new(16, 30)),
+        new(new("memory-cleanup", "Minnesstädning", "Söndagar · 20:00", "Slår ihop dubbletter och rensar inaktuella rader i minnet.", true, "memory-cleanup"), [DayOfWeek.Sunday], new(20, 0)),
+        new(new("week-review", "Veckorevy", "Fredagar · 15:00", "Vad som byggts, vad som fastnat och förslag på nästa vecka.", false, "week-summary"), [DayOfWeek.Friday], new(15, 0)),
     ];
 
     public static readonly IReadOnlyList<Artifact> Artifacts =

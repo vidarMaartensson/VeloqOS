@@ -1,7 +1,7 @@
 import type { Project } from '../api/types';
 
 /** Scene the orbit is drawn in, in px. The core sits slightly below centre to leave room for the header. */
-export const SCENE = { width: 570, height: 580, cx: 285, cy: 300, rx: 228, ry: 200, choreRadius: 110 } as const;
+export const SCENE = { width: 570, height: 580, cx: 285, cy: 300, rx: 228, ry: 200, choreRadius: 110, skillRadius: 160 } as const;
 
 const ORB_SIZE: Record<Project['tier'], number> = { 3: 64, 2: 52, 1: 42 };
 
@@ -32,11 +32,16 @@ export function placeOrbs(projects: Project[]): OrbPlacement[] {
 }
 
 /** Chore nodes evenly around the core, the first at the top. Offsets are relative to the core. */
-export function placeChores(count: number, radius: number = SCENE.choreRadius): { x: number; y: number }[] {
+export function placeChores(count: number, radius: number = SCENE.choreRadius, startDegrees = -90): { x: number; y: number }[] {
   return Array.from({ length: count }, (_, i) => {
-    const a = ((-90 + (360 / Math.max(count, 1)) * i) * Math.PI) / 180;
+    const a = ((startDegrees + (360 / Math.max(count, 1)) * i) * Math.PI) / 180;
     return { x: round(radius * Math.cos(a)), y: round(radius * Math.sin(a)) };
   });
+}
+
+/** Skills on the outer ring, a half step off the top so the first one clears the top project. */
+export function placeSkills(count: number, radius: number = SCENE.skillRadius): { x: number; y: number }[] {
+  return placeChores(count, radius, -90 + 180 / Math.max(count, 1));
 }
 
 /** Pointer position inside an element as -1…1 on both axes, for the parallax layers. */

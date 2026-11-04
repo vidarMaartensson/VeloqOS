@@ -1,31 +1,39 @@
 import { useMemo, useState, type CSSProperties } from 'react';
-import type { Chore, Job, Project } from '../api/types';
-import { placeChores, placeOrbs, pointerOffset, SCENE } from '../lib/orbit';
+import type { Chore, Job, Project, ProjectStatus } from '../api/types';
+import { statusLine } from '../lib/projects';
+import { placeChores, placeOrbs, placeSkills, pointerOffset, SCENE } from '../lib/orbit';
 import { choreIcon, Icon } from './Icon';
 
 interface Props {
   projects: Project[];
   chores: Chore[];
+  /** Your skills, on the ring outside the chores. They run through onRunChore too. */
+  skills?: Chore[];
   jobs: Job[];
   query: string;
   onRunChore: (id: string) => void;
   onPromptProject: (project: Project) => void;
+  /** git and CI per project; a project that needs attention gets a dot. */
+  statuses?: ProjectStatus[];
+  onOpenProject?: (project: Project) => void;
 }
 
 const PARALLAX = 12;
 
-/** Projects float around the chores core. The pointer shifts the layers for depth. */
-export function Orbit({ projects, chores, jobs, query, onRunChore, onPromptProject }: Props) {
+/** Projects float around the chores and skills core. The pointer shifts the layers for depth. */
+export function Orbit({ projects, chores, skills = [], jobs, query, onRunChore, onPromptProject, statuses = [], onOpenProject }: Props) {
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [selected, setSelected] = useState<string | null>(null);
 
   const orbs = useMemo(() => placeOrbs(projects), [projects]);
   const nodes = useMemo(() => placeChores(chores.length), [chores.length]);
+  const skillNodes = useMemo(() => placeSkills(skills.length), [skills.length]);
   const q = query.trim().toLowerCase();
 
-  // The core shows the newest chore job.
-  const latest = jobs.find((j) => chores.some((c) => c.id === j.choreId));
-  const latestChore = latest ? chores.find((c) => c.id === latest.choreId) : undefined;
+  // The core shows the newest chore or skill job.
+  const runnable = [...chores, ...skills];
+  const latest = jobs.find((j) => runnable.some((c) => c.id === j.choreId));
+  const latestChore = latest ? runnable.find((c) => c.id === latest.choreId) : undefined;
   const stateOf = (id: string) => jobs.find((j) => j.choreId === id)?.status;
 
   const shift = (k: number): CSSProperties => ({
@@ -33,6 +41,7 @@ export function Orbit({ projects, chores, jobs, query, onRunChore, onPromptProje
   });
 
   const project = projects.find((p) => p.id === selected);
+  const projectStatus = statuses.find((s) => s.projectId === selected);
 
   return (
     <section
@@ -42,7 +51,7 @@ export function Orbit({ projects, chores, jobs, query, onRunChore, onPromptProje
     >
       <div className="orbit-head">
         <span className="label">Orbit</span>
-        <span className="meta">Projekt runt om · chores i mitten</span>
+        <span className="meta">Projekt runt om · chores och skills i mitten</span>
       </div>
       <div className="legend" aria-hidden="true">
         <span><i style={{ background: 'var(--accent)' }} />Aktiv</span>
@@ -59,6 +68,9 @@ export function Orbit({ projects, chores, jobs, query, onRunChore, onPromptProje
             <g className="spin-slow">
               <circle cx={SCENE.cx} cy={SCENE.cy} r={SCENE.choreRadius} fill="none" stroke="#F2F4F8" strokeOpacity=".09" strokeDasharray="1 6" />
             </g>
+            {skills.length > 0 && (
+              <circle cx={SCENE.cx} cy={SCENE.cy} r={SCENE.skillRadius} fill="none" stroke="#F2F4F8" strokeOpacity=".06" strokeDasharray="1 8" />
+            )}
           </svg>
         </div>
 
@@ -83,6 +95,7 @@ export function Orbit({ projects, chores, jobs, query, onRunChore, onPromptProje
           {orbs.map((o) => {
             const match = !!q && o.project.name.toLowerCase().includes(q);
             const pressed = o.project.id === selected;
+            const attention = statuses.some((s) => s.projectId === o.project.id && s.attention);
             return (
               <div
                 key={o.project.id}
@@ -97,11 +110,12 @@ export function Orbit({ projects, chores, jobs, query, onRunChore, onPromptProje
                 <button
                   className={`orb tier-${o.project.tier}${match ? ' match' : ''}`}
                   aria-pressed={pressed}
-                  aria-label={`${o.project.name}, ${o.project.status}`}
+                  aria-label={`${o.project.name}, ${o.project.status}${attention ? ', behöver uppmärksamhet' : ''}`}
                   onClick={() => setSelected(pressed ? null : o.project.id)}
                 >
                   <span className="ball" style={{ width: o.size, height: o.size }}>
                     {o.project.tier === 3 && <span className="sat" />}
+                    {attention && <span className="attn" />}
                     {String(o.index + 1).padStart(2, '0')}
                   </span>
                   <span className="name">{o.project.name}</span>
@@ -157,6 +171,19 @@ export function Orbit({ projects, chores, jobs, query, onRunChore, onPromptProje
                 <Icon name={choreIcon[c.icon] ?? 'doc'} size={20} />
               </button>
             ))}
+            {skills.map((s, i) => (
+              <button
+                key={s.id}
+                className="skill-node"
+                data-state={stateOf(s.id) ?? 'idle'}
+                style={{ left: skillNodes[i].x, top: skillNodes[i].y }}
+                aria-label={`Kör skill: ${s.name}`}
+                title={s.description || s.name}
+                onClick={() => onRunChore(s.id)}
+              >
+                {s.name}
+              </button>
+            ))}
           </div>
         </div>
       </div>
@@ -169,7 +196,9 @@ export function Orbit({ projects, chores, jobs, query, onRunChore, onPromptProje
               <span className="pill">{project.status}</span>
             </div>
             <span className="ellipsis" style={{ fontSize: 15, color: 'var(--ink-body)' }}>{project.body}</span>
+            {projectStatus && <span className="meta ellipsis">{statusLine(projectStatus)}</span>}
           </div>
+          {onOpenProject && <button className="ghost" style={{ minHeight: 48 }} onClick={() => onOpenProject(project)}>Detaljer</button>}
           <button className="primary" style={{ minHeight: 48 }} onClick={() => onPromptProject(project)}>Prompta</button>
           <button className="icon-btn" aria-label="Stäng projekt" onClick={() => setSelected(null)}>
             <Icon name="close" size={16} strokeWidth={2} />

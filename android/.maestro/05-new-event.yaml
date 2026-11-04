@@ -1,0 +1,13 @@
+# Add an event from the calendar card (sample calendar; the form starts at the next full hour today).
+appId: com.vidarmartensson.veloqos
+---
+- launchApp:
+    clearState: true
+- tapOn: "Anslut Google"
+- tapOn: "Ny händelse"
+- tapOn: "Titel"
+- inputText: "Tandläkare"
+- hideKeyboard
+- tapOn: "Lägg in"
+- assertVisible: "Tandläkare"
+- assertVisible: "Ny händelse"

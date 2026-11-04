@@ -57,8 +57,9 @@ import com.vidarmartensson.veloqos.ui.components.Mark
 import com.vidarmartensson.veloqos.ui.screens.HomeScreen
 import com.vidarmartensson.veloqos.ui.screens.InboxScreen
 import com.vidarmartensson.veloqos.ui.screens.MoreScreen
+import com.vidarmartensson.veloqos.ui.screens.LinearScreen
 import com.vidarmartensson.veloqos.ui.screens.ProjectsScreen
-import com.vidarmartensson.veloqos.ui.screens.PromptScreen
+import com.vidarmartensson.veloqos.ui.screens.RunChoreDialog
 import com.vidarmartensson.veloqos.ui.theme.Veloq
 import com.vidarmartensson.veloqos.ui.theme.VeloqType
 import kotlinx.coroutines.delay
@@ -67,9 +68,9 @@ import java.time.ZonedDateTime
 
 enum class Tab(val label: String, val icon: String) {
     Home("Hem", "M4 11l8-7 8 7v9h-5v-6H9v6H4z"),
-    Prompt("Prompt", "M5 5h14v10H10l-5 4z"),
     Projects("Projekt", "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"),
     Inbox("Inkorg", "M4 6h16v12H4zM4 7l8 6 8-6"),
+    Linear("Linear", "M5 6h2M5 12h2M5 18h2M10 6h9M10 12h9M10 18h9"),
     More("Mer", "M13 3L5 13h6l-1 8 8-10h-6z"),
 }
 
@@ -92,8 +93,13 @@ fun VeloqApp(
         }
     }
 
+    val openProject = tab == Tab.Projects && state.project != null
     BackHandler(enabled = tab != Tab.Home || openMail != null) {
-        if (openMail != null) openMail = null else tab = Tab.Home
+        when {
+            openMail != null -> openMail = null
+            openProject -> viewModel.closeProject()
+            else -> tab = Tab.Home
+        }
     }
 
     Column(Modifier.fillMaxSize().background(Veloq.Bg)) {
@@ -128,16 +134,23 @@ fun VeloqApp(
                     Tab.Home -> HomeScreen(
                         state = state,
                         now = now,
-                        onSend = { viewModel.send(it); tab = Tab.Prompt },
                         onConnectCalendar = { viewModel.connectCalendar(openUrl) },
                         onBook = viewModel::book,
+                        onAddEvent = viewModel::addEvent,
                         onRunChore = viewModel::runChore,
+                        onRunRoutine = viewModel::runRoutine,
                         onOpenJobs = { tab = Tab.More },
                         onOpenMore = { tab = Tab.More },
                         onOpenMail = { openMail = it; tab = Tab.Inbox },
                     )
-                    Tab.Prompt -> PromptScreen(state, onSend = viewModel::send)
-                    Tab.Projects -> ProjectsScreen(state.projects, onPrompt = { viewModel.setPromptContext(it.name); tab = Tab.Prompt })
+                    Tab.Projects -> ProjectsScreen(
+                        state = state,
+                        now = now,
+                        onLoad = viewModel::loadStatus,
+                        onOpen = viewModel::openProject,
+                        onBack = viewModel::closeProject,
+                        openUrl = openUrl,
+                    )
                     Tab.Inbox -> InboxScreen(
                         items = state.inbox,
                         openId = openMail,
@@ -146,9 +159,38 @@ fun VeloqApp(
                         onAct = viewModel::act,
                         onUndo = viewModel::undo,
                     )
-                    Tab.More -> MoreScreen(state, conn, viewModel::setRoutine, viewModel::runChore, onSaveConnection)
+                    Tab.Linear -> LinearScreen(
+                        linear = state.linear,
+                        onOpen = viewModel::openLinear,
+                        onPickTeam = viewModel::pickTeam,
+                        onShowDone = viewModel::setShowDone,
+                        onCreate = viewModel::createStory,
+                        openUrl = openUrl,
+                    )
+                    Tab.More -> MoreScreen(
+                        state,
+                        conn,
+                        now,
+                        viewModel::setRoutine,
+                        viewModel::runRoutine,
+                        viewModel::runChore,
+                        viewModel::toggleChoice,
+                        viewModel::confirmJob,
+                        onSaveConnection,
+                    )
                 }
             }
+        }
+
+        state.choreRun?.let { run ->
+            RunChoreDialog(
+                run = run,
+                projects = state.projects,
+                onPick = viewModel::pickRunProject,
+                onArgument = viewModel::setRunArgument,
+                onRun = viewModel::startRun,
+                onClose = viewModel::closeRun,
+            )
         }
 
         TabBar(tab, onSelect = { tab = it; if (it != Tab.Inbox) openMail = null })
