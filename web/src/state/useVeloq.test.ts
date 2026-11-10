@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../api/client';
 import { fakeApi } from '../test/fakeApi';
-import { brief, runningJob, statuses, systemLow, waitingJob } from '../test/fixtures';
+import { brief, inbox, routines, runningJob, statuses, systemLow, waitingJob } from '../test/fixtures';
 import { useVeloq } from './useVeloq';
 
 describe('useVeloq chores', () => {
@@ -61,5 +61,34 @@ describe('useVeloq extras', () => {
 
     expect(runRoutine).toHaveBeenCalledWith('week-review');
     expect(result.current.state.jobs[0].choreId).toBe('week-summary');
+  });
+});
+
+describe('useVeloq when the API says no', () => {
+  it('puts a routine back the way it was', async () => {
+    const setRoutine = vi.fn().mockRejectedValue(new ApiError(500, 'Kunde inte spara.'));
+    const api = fakeApi({ setRoutine, routines: vi.fn().mockResolvedValue(routines) });
+    const { result } = renderHook(() => useVeloq(api));
+    await waitFor(() => expect(result.current.state.routines).toHaveLength(routines.length));
+
+    await act(() => result.current.actions.setRoutine('week-review', true));
+
+    expect(result.current.state.routines.find((r) => r.id === 'week-review')?.enabled).toBe(false);
+    expect(result.current.state.error).toBe('Kunde inte spara.');
+  });
+
+  it('tells whether an inbox action went through', async () => {
+    const actOn = vi.fn()
+      .mockResolvedValueOnce({ ...inbox[0], handledWith: 'archive' })
+      .mockRejectedValueOnce(new ApiError(502, 'Gmail svarar inte.'));
+    const api = fakeApi({ act: actOn, inbox: vi.fn().mockResolvedValue(inbox) });
+    const { result } = renderHook(() => useVeloq(api));
+    await waitFor(() => expect(result.current.state.inbox).toHaveLength(inbox.length));
+
+    let ok: boolean | undefined;
+    await act(async () => { ok = await result.current.actions.act('m1', 'archive'); });
+    expect(ok).toBe(true);
+    await act(async () => { ok = await result.current.actions.act('m2', 'archive'); });
+    expect(ok).toBe(false);
   });
 });

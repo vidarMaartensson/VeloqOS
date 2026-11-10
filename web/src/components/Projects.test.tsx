@@ -15,7 +15,7 @@ describe('DiskBadge', () => {
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
 
     rerender(<DiskBadge system={systemLow} onClean={onClean} />);
-    await userEvent.click(screen.getByRole('button', { name: /Disken är nästan full, 3,2 GB ledigt/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Disken är nästan full/ }));
     expect(onClean).toHaveBeenCalled();
   });
 });
@@ -72,7 +72,7 @@ describe('RoutinesSheet', () => {
 
     expect(screen.getByText('Vardagar · 07:40 · Nästa i morgon 07:40')).toBeInTheDocument();
     expect(screen.getByText('Fredagar · 15:00')).toBeInTheDocument(); // off: no next run
-    await userEvent.click(screen.getByRole('button', { name: 'Kör Veckorevy nu' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Kör nu: Veckorevy' }));
     expect(onRun).toHaveBeenCalledWith('week-review');
   });
 });

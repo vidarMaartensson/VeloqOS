@@ -44,9 +44,9 @@ export function KpiStrip({ items, onJump }: { items: Kpi[]; onJump: (tile: strin
     <div className="kpis" data-tile="overview">
       {items.map((k) => (
         <button key={k.key} className="kpi" onClick={() => onJump(k.tile)} aria-label={`${k.label}: ${k.value ?? 'okänt'}${k.unit ? ` ${k.unit}` : ''}`}>
-          <span className="label">{k.label}</span>
+          <span className="label">{k.label}</span>{' '}
           <span className="kpi-val">
-            <Count value={k.value} />
+            <Count value={k.value} />{' '}
             {k.unit && <span className="unit">{k.unit}</span>}
           </span>
         </button>

@@ -134,13 +134,18 @@ export default function App({ api = defaultApi, restartApi = desktopRestart() }:
     }
   };
 
+  /** Starts a chore that has no sheet to show the API's complaint in. */
+  const runDirectly = (id: string) => {
+    void actions.runChore(id).then((problem) => problem && showToast(problem));
+  };
+
   /** Runs a chore on a tap, or opens the run sheet when it takes a project or an addition. */
   const startChore = (chore: Chore) => {
     if (needsRunSheet(chore)) {
       setRunChoreId(chore.id);
       setPanel('run');
     } else {
-      void actions.runChore(chore.id);
+      runDirectly(chore.id);
       if (panel === 'skills') setPanel(null);
     }
   };
@@ -157,7 +162,7 @@ export default function App({ api = defaultApi, restartApi = desktopRestart() }:
   return (
     <div className="shell">
       <nav className="rail" aria-label="Huvudmeny">
-        <span style={{ marginBottom: 22 }}><Mark /></span>
+        <span className="rail-mark" style={{ marginBottom: 22 }}><Mark /></span>
         {rail.map((r) => (
           <button
             key={r.key}
@@ -200,7 +205,7 @@ export default function App({ api = defaultApi, restartApi = desktopRestart() }:
               <label htmlFor="search" className="sr-only">Sök projekt och artefakter</label>
               <input id="search" placeholder="Sök projekt och artefakter…" value={query} onChange={(e) => setQuery(e.target.value)} />
             </div>
-            <DiskBadge system={state.system} onClean={() => void actions.runChore('disk-cleanup')} />
+            <DiskBadge system={state.system} onClean={() => runDirectly('disk-cleanup')} />
             <div className="conn"><span className="live" />Dator · telefon</div>
           </div>
         </header>
@@ -257,7 +262,7 @@ export default function App({ api = defaultApi, restartApi = desktopRestart() }:
               system={state.system}
               jobs={state.jobs}
               rick={rick}
-              onScan={() => void actions.runChore('disk-cleanup')}
+              onScan={() => runDirectly('disk-cleanup')}
               onConfirm={async (jobId, choices) => {
                 const problem = await actions.confirmJob(jobId, choices);
                 if (!problem && voice.state.confirm?.jobId === jobId) voice.actions.dismissConfirm();
@@ -269,11 +274,11 @@ export default function App({ api = defaultApi, restartApi = desktopRestart() }:
               items={state.inbox}
               now={now}
               rick={rick}
-              onAct={(id, action) => void actions.act(id, action)}
+              onAct={actions.act}
               onOpen={(id) => { setInboxId(id); setPanel('inbox'); }}
               onOpenAll={() => { setInboxId(undefined); setPanel('inbox'); }}
             />
-            <ArtifactTile artifacts={state.artifacts} query={query} syncing={choreRunning('sync-artifacts')} onSync={() => void actions.runChore('sync-artifacts')} />
+            <ArtifactTile artifacts={state.artifacts} query={query} syncing={choreRunning('sync-artifacts')} onSync={() => runDirectly('sync-artifacts')} />
             <LinearTile
               state={board.state}
               rick={rick}

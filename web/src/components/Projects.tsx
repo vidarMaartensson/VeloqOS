@@ -9,7 +9,7 @@ export function DiskBadge({ system, onClean }: { system: SystemInfo | null; onCl
   if (!system) return null;
   const { label, low } = system.disk;
   return low ? (
-    <button className="conn disk low" onClick={onClean} aria-label={`Disken är nästan full, ${label}. Rensa cache`}>
+    <button className="conn disk low" onClick={onClean} aria-label={`Disk · ${label} – Rensa cache. Disken är nästan full.`}>
       Disk · {label} – Rensa cache
     </button>
   ) : (
@@ -50,13 +50,16 @@ export function CiCard({ projects, statuses, onOpen }: { projects: Project[]; st
       {rows.length === 0 ? (
         <p className="empty">Inga körningar hittades. Kräver gh på datorn.</p>
       ) : (
-        rows.map(({ status, project }) => (
-          <button key={project.id} className="lrow ci-row" onClick={() => onOpen(project)} aria-label={`${project.name}: ${statusLine(status)}`}>
-            <span className={`ci-dot ${status.ci ?? 'none'}`} />
-            <span className="chore-name" style={{ flex: 1 }}>{project.name}</span>
-            <span className="meta">{status.ci === 'failing' ? 'Rött' : status.ci === 'running' ? 'Kör' : status.ci === 'passing' ? 'Grönt' : '–'}{status.pullRequests ? ` · ${status.pullRequests} PR` : ''}</span>
-          </button>
-        ))
+        rows.map(({ status, project }) => {
+          const summary = `${status.ci === 'failing' ? 'Rött' : status.ci === 'running' ? 'Kör' : status.ci === 'passing' ? 'Grönt' : '–'}${status.pullRequests ? ` · ${status.pullRequests} PR` : ''}`;
+          return (
+            <button key={project.id} className="lrow ci-row" onClick={() => onOpen(project)} aria-label={`${project.name}: ${summary}. ${statusLine(status)}`}>
+              <span className={`ci-dot ${status.ci ?? 'none'}`} />
+              <span className="chore-name" style={{ flex: 1 }}>{project.name}</span>{' '}
+              <span className="meta">{summary}</span>
+            </button>
+          );
+        })
       )}
     </section>
   );

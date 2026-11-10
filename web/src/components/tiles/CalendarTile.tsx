@@ -150,10 +150,10 @@ function EventBlock({ event, events, rick, onBook, onMove, onToast }: { event: C
       style={{ height }}
       tabIndex={event.suggested ? undefined : 0}
       role={event.suggested ? undefined : 'button'}
-      aria-label={event.suggested ? undefined : `${event.title}, ${hhmm(start)} till ${hhmm(end)}. Pil upp eller ner flyttar en kvart.`}
+      aria-label={event.suggested ? undefined : `${event.title}, ${hhmm(start)}–${hhmm(end)}. Pil upp eller ner flyttar en kvart.`}
     >
+      <span className="ev-n ellipsis">{event.title}</span>{' '}
       <span className="ev-t" ref={timeRef}>{hhmm(start)}–{hhmm(end)}</span>
-      <span className="ev-n ellipsis">{event.title}</span>
       {event.suggested && (
         <button className="ev-book" onClick={() => onBook(event.id)} aria-label={`Boka ${event.title}`}>Boka</button>
       )}

@@ -16,7 +16,7 @@ describe('SkillsSheet', () => {
     const skills = within(screen.getByRole('region', { name: 'Dina skills' }));
     expect(skills.getByText('/pr')).toBeInTheDocument();
 
-    await userEvent.click(skills.getByRole('button', { name: 'Kör /pr' }));
+    await userEvent.click(skills.getByRole('button', { name: /^Kör \/pr/ }));
     expect(onPick).toHaveBeenCalledWith(chore('skill-pr'));
   });
 
@@ -97,9 +97,9 @@ describe('JobsCard', () => {
     const onOpen = vi.fn();
     render(<JobsCard jobs={[waitingJob, runningJob('memory-cleanup')]} onOpen={onOpen} />);
 
-    const waiting = screen.getByRole('button', { name: 'Visa jobb: Oanvända paket' });
+    const waiting = screen.getByRole('button', { name: /^Visa jobb: Oanvända paket/ });
     expect(waiting).toHaveTextContent('Veloq OS · Väntar på ditt val');
-    expect(screen.getByRole('button', { name: 'Visa jobb: Städa minnet' })).toHaveTextContent('Kör på datorn…');
+    expect(screen.getByRole('button', { name: /^Visa jobb: Städa minnet/ })).toHaveTextContent('Kör på datorn…');
 
     await userEvent.click(waiting);
     expect(onOpen).toHaveBeenCalledWith(waitingJob);
