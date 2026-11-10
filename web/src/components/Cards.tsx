@@ -65,7 +65,7 @@ export function JobsCard({ jobs, onOpen }: { jobs: Job[]; onOpen: (job: Job) => 
         <p className="empty">Inget körs just nu. Starta en chore i orbiten.</p>
       ) : (
         shown.map((j) => (
-          <button key={j.id} className="job job-btn" onClick={() => onOpen(j)} aria-label={`Visa jobb: ${j.title}`}>
+          <button key={j.id} className="job job-btn" onClick={() => onOpen(j)} aria-label={`Visa jobb: ${j.title}: ${jobLine(j)}`}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               {j.status === 'running' ? (
                 <span className="live" />
@@ -73,7 +73,7 @@ export function JobsCard({ jobs, onOpen }: { jobs: Job[]; onOpen: (job: Job) => 
                 <Icon name={j.status === 'failed' ? 'close' : waitsForChoice(j) ? 'task' : 'check'} size={16} strokeWidth={1.8} />
               )}
               <span style={{ fontSize: 16, fontWeight: 500 }}>{j.title}</span>
-            </div>
+            </div>{' '}
             <span className={j.status === 'failed' ? 'meta job-failed' : 'meta'}>{jobLine(j)}</span>
             <div className="track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(j.progress * 100)} aria-label={j.title}>
               <div style={{ transform: `scaleX(${j.progress})` }} />

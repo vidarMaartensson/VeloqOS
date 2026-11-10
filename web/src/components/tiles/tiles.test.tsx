@@ -22,7 +22,7 @@ describe('CalendarTile', () => {
     const p = props();
     render(<CalendarTile {...p} />);
 
-    fireEvent.keyDown(screen.getByRole('button', { name: /^\[Möte\], 08:30 till 09:00/ }), { key: 'ArrowDown' });
+    fireEvent.keyDown(screen.getByRole('button', { name: /^\[Möte\], 08:30–09:00/ }), { key: 'ArrowDown' });
 
     await vi.waitFor(() => expect(p.onMove).toHaveBeenCalledWith(calendarConnected.events[0], '2026-10-29T08:45:00+01:00', '2026-10-29T09:15:00+01:00'));
     expect(p.onToast).toHaveBeenCalledWith('Flyttat till 08:45. Google har fått veta.');
@@ -54,7 +54,7 @@ describe('CalendarTile', () => {
     const p = { ...props(), calendar: { ...calendarConnected, events: [{ ...calendarConnected.events[0], id: 'late', title: 'Sent', start: '2026-10-29T18:30:00+01:00', end: '2026-10-29T20:00:00+01:00' }] } };
     render(<CalendarTile {...p} />);
 
-    fireEvent.keyDown(screen.getByRole('button', { name: /^Sent, 18:30 till 20:00/ }), { key: 'ArrowUp' });
+    fireEvent.keyDown(screen.getByRole('button', { name: /^Sent, 18:30–20:00/ }), { key: 'ArrowUp' });
 
     expect(p.onMove).toHaveBeenCalledWith(expect.objectContaining({ id: 'late' }), '2026-10-29T18:15:00+01:00', '2026-10-29T19:45:00+01:00');
   });
@@ -164,9 +164,9 @@ describe('ArtifactTile, SkillsTile and KpiStrip', () => {
     render(<ArtifactTile artifacts={artifacts} query="" syncing={false} onSync={vi.fn()} />);
     const first = artifacts[0];
 
-    await userEvent.click(screen.getByRole('button', { name: `${first.title}. Vänd kortet.` }));
+    await userEvent.click(screen.getByRole('button', { name: new RegExp(`^${first.title} .*Vänd kortet`) }));
 
-    expect(screen.getByRole('button', { name: `${first.title}. Vänd kortet.` })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: new RegExp(`^${first.title} .*Vänd kortet`) })).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getAllByRole('link', { name: 'Öppna' })[0]).toHaveAttribute('href', first.url);
   });
 
@@ -175,7 +175,7 @@ describe('ArtifactTile, SkillsTile and KpiStrip', () => {
     render(<SkillsTile chores={chores} jobs={[]} onRun={onRun} onOpenAll={vi.fn()} />);
     const skill = chores.find((c) => c.kind === 'skill')!;
 
-    await userEvent.click(screen.getByRole('button', { name: `Starta ${skill.name}` }));
+    await userEvent.click(screen.getByRole('button', { name: new RegExp(`^Starta ${skill.name}`) }));
 
     expect(onRun).toHaveBeenCalledWith(skill);
   });

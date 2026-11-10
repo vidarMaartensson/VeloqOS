@@ -182,6 +182,7 @@ export function useVeloq(api: Api = defaultApi) {
         await api.setRoutine(id, enabled);
         refreshOverview();
       } catch (e) {
+        setState((s) => ({ ...s, routines: s.routines.map((r) => (r.id === id ? { ...r, enabled: !enabled } : r)) }));
         fail(e);
       }
     },
@@ -193,6 +194,7 @@ export function useVeloq(api: Api = defaultApi) {
     [],
   );
 
+  /** Resolves to false (with the error shown) if the API said no. */
   const act = useCallback(
     async (id: string, action: InboxAction, body?: string) => {
       try {
@@ -202,8 +204,10 @@ export function useVeloq(api: Api = defaultApi) {
           patch({ calendar });
         }
         refreshOverview();
+        return true;
       } catch (e) {
         fail(e);
+        return false;
       }
     },
     [api, replaceItem, patch, fail, refreshOverview],

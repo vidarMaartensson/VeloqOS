@@ -15,7 +15,12 @@ export default defineConfig({
     // Orbs float forever; reduced motion also checks that the app honours the setting.
     contextOptions: { reducedMotion: 'reduce' },
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 1100 } } }],
+  projects: [
+    { name: 'chromium', testIgnore: /responsive\.spec/, use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 1100 } } },
+    { name: 'laptop', testMatch: /responsive\.spec/, use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } } },
+    { name: 'tablet', testMatch: /responsive\.spec/, use: { ...devices['Desktop Chrome'], viewport: { width: 820, height: 1180 } } },
+    { name: 'mobile', testMatch: /responsive\.spec/, use: { ...devices['Pixel 7'] } },
+  ],
   webServer: {
     command: 'npm run dev',
     url: 'http://localhost:7470',

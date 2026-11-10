@@ -141,7 +141,7 @@ export function LinearTile({ state, rick, voicePulse, onPickTeam, onMove, onCrea
       {state.error && <p className="tile-error">{state.error}</p>}
       <div className="kanban" ref={board}>
         {columns.map((col, ci) => (
-          <div key={col.id} className="col" data-col={col.id} aria-label={col.label} role="list">
+          <div key={col.id} className="col" data-col={col.id} aria-label={col.label} role={col.issues.length > 0 ? 'list' : 'group'}>
             <div className="col-head">
               <span className="label">{col.label}</span>
               <span className="meta">{col.issues.length}</span>

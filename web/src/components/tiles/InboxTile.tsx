@@ -8,7 +8,8 @@ interface Props {
   items: InboxItem[];
   now: Date;
   rick: boolean;
-  onAct: (id: string, action: InboxAction) => void;
+  /** Resolves to false when the API said no; the card comes back. */
+  onAct: (id: string, action: InboxAction) => Promise<boolean>;
   onOpen: (id: string) => void;
   onOpenAll: () => void;
 }
@@ -30,13 +31,13 @@ export function InboxTile({ items, now, rick, onAct, onOpen, onOpenAll }: Props)
     card.dataset.gone = '1';
     Draggable.get(card)?.kill();
     const id = top.id;
-    const done = () => {
+    const done = async () => {
       setLeaving((l) => [...l, id]);
-      onAct(id, dir > 0 ? 'archive' : 'snooze');
+      if ((await onAct(id, dir > 0 ? 'archive' : 'snooze')) === false) setLeaving((l) => l.filter((x) => x !== id));
     };
-    if (reducedMotion()) return done();
+    if (reducedMotion()) return void done();
     gsap.set(card.querySelector(dir > 0 ? '.stamp.arch' : '.stamp.later'), { opacity: 1 });
-    gsap.to(card, { x: dir * 480, rotation: dir * 24, opacity: 0, duration: 0.5, ease: 'power2.in', onComplete: done });
+    gsap.to(card, { x: dir * 480, rotation: dir * 24, opacity: 0, duration: 0.5, ease: 'power2.in', onComplete: () => void done() });
   };
   const swipeRef = useRef(swipe);
   swipeRef.current = swipe;

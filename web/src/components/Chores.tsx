@@ -25,7 +25,7 @@ export function SkillsSheet({ chores, onPick, onClose }: { chores: Chore[]; onPi
                   <span className={c.kind === 'skill' ? 'chore-name mono' : 'chore-name'}>{c.name}</span>
                   {c.description && <span className="chore-desc">{c.description}</span>}
                 </div>
-                <button className="ghost" onClick={() => onPick(c)} aria-label={`Kör ${c.name}`}>
+                <button className="ghost" onClick={() => onPick(c)} aria-label={needsRunSheet(c) ? `Kör ${c.name}: välj` : `Kör ${c.name}`}>
                   {needsRunSheet(c) ? 'Välj' : 'Kör'}
                 </button>
               </div>

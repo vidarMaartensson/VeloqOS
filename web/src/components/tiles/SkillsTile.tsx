@@ -43,13 +43,14 @@ export function SkillsTile({ chores, jobs, onRun, onOpenAll }: Props) {
           const running = job?.status === 'running';
           const progress = running ? job.progress : 0;
           const label = chore.kind === 'skill' ? `/${chore.name.replace(/^\//, '')}` : chore.name;
+          const meta = running ? `${Math.round(progress * 100)} %` : chore.estimate;
           return (
             <button
               key={chore.id}
               className={`key${running ? ' running' : ''}`}
               onClick={(e) => press(chore, e.currentTarget)}
               disabled={running}
-              aria-label={`Starta ${chore.name}`}
+              aria-label={`Starta ${label} ${meta}`}
               title={chore.description}
             >
               <svg className="ring" width="48" height="48" viewBox="0 0 48 48" aria-hidden="true">
@@ -57,8 +58,8 @@ export function SkillsTile({ chores, jobs, onRun, onOpenAll }: Props) {
                 <circle cx="24" cy="24" r="21" stroke="var(--accent)" strokeWidth="2" fill="none" strokeLinecap="round"
                   strokeDasharray={RING} strokeDashoffset={RING * (1 - progress)} transform="rotate(-90 24 24)" />
               </svg>
-              <span className="key-name ellipsis">{label}</span>
-              <span className="meta">{running ? `${Math.round(progress * 100)} %` : chore.estimate}</span>
+              <span className="key-name ellipsis">{label}</span>{' '}
+              <span className="meta">{meta}</span>
             </button>
           );
         })}

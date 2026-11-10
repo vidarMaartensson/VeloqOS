@@ -192,7 +192,7 @@ function Bubbles({ groups, rick, onFeed, onToast }: { groups: Group[]; rick: boo
             style={{ width: size, height: size, left: `${x * 100}%`, top: `${y * 100}%` }}
             aria-label={`${g.label}${g.bytes ? `, ${gb(g.bytes)} GB` : ''}. Enter väljer den.`}
           >
-            <span className="in">{g.bytes !== null && <b>{gb(g.bytes)}</b>}<span>{g.label}</span></span>
+            <span className="in"><span>{g.label}</span>{' '}{g.bytes !== null && <b>{gb(g.bytes)}</b>}</span>
           </button>
         );
       })}

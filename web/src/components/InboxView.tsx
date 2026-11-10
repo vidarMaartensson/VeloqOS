@@ -3,6 +3,7 @@ import type { InboxAction, InboxItem } from '../api/types';
 import { ACTIONS, actionInfo, defaultDraft, filterItems, inboxTitle, initial, openCount, rowStatus, TAGS, type TagFilter } from '../lib/inbox';
 import { relativeDay } from '../lib/time';
 import { actionIcon, Icon } from './Icon';
+import { useDialogFocus } from './Sheets';
 
 interface Props {
   items: InboxItem[];
@@ -16,6 +17,7 @@ interface Props {
 
 /** Full inbox: every item on the left, the chosen one with its actions on the right. */
 export function InboxView({ items, now, initialId, onAct, onUndo, onClearNoise, onClose }: Props) {
+  const dialog = useDialogFocus();
   const [filter, setFilter] = useState<TagFilter>('Alla');
   const [selectedId, setSelectedId] = useState<string | null>(initialId ?? items[0]?.id ?? null);
   const [replying, setReplying] = useState(false);
@@ -48,7 +50,7 @@ export function InboxView({ items, now, initialId, onAct, onUndo, onClearNoise, 
   return (
     <>
       <div className="overlay" onClick={onClose} />
-      <section className="inbox" role="dialog" aria-modal="true" aria-label="Inkorg">
+      <section ref={dialog} className="inbox" role="dialog" aria-modal="true" aria-label="Inkorg" tabIndex={-1}>
         <div className="inbox-side">
           <div className="inbox-head">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>

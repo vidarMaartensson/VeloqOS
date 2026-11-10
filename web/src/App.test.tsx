@@ -65,19 +65,19 @@ describe('Skills', () => {
     await screen.findByText('Online');
 
     await userEvent.click(within(screen.getByRole('navigation')).getByRole('button', { name: 'Skills' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Kör /pr' }));
-    const sheet = screen.getByRole('dialog', { name: 'Kör /pr' });
+    await userEvent.click(screen.getByRole('button', { name: /^Kör \/pr/ }));
+    const sheet = screen.getByRole('dialog', { name: /^Kör \/pr/ });
     await userEvent.click(within(sheet).getByRole('button', { name: 'HaloDeck' }));
     await userEvent.click(within(sheet).getByRole('button', { name: 'Kör' }));
 
     expect(runChore).toHaveBeenCalledWith('skill-pr', { projectId: 'halodeck' });
-    expect(screen.queryByRole('dialog', { name: 'Kör /pr' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: /^Kör \/pr/ })).not.toBeInTheDocument();
   });
 
   it('opens a waiting job from the jobs card', async () => {
     render(<App api={fakeApi({ jobs: vi.fn().mockResolvedValue([waitingJob]) })} restartApi={undefined} />);
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Visa jobb: Oanvända paket' }));
+    await userEvent.click(await screen.findByRole('button', { name: /^Visa jobb: Oanvända paket/ }));
 
     expect(screen.getByRole('dialog', { name: 'Jobb: Oanvända paket' })).toHaveTextContent('Ta bort valda');
   });

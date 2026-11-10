@@ -92,12 +92,12 @@ export function ArtifactTile({ artifacts, query, syncing, onSync }: Props) {
             return (
               <div key={a.id} className="acard" data-id={a.id}>
                 <div className={`flipper${back && reducedMotion() ? ' turned' : ''}`}>
-                  <button className="aface front" onClick={() => turn(a.id)} aria-label={`${a.title}. Vänd kortet.`} aria-expanded={back}>
+                  <button className="aface front" onClick={() => turn(a.id)} aria-label={`${a.title} ${KIND_LABEL[a.kind]} · ${formatDay(a.updatedAt)}. Vänd kortet.`} aria-expanded={back}>
                     <svg width="100%" height="84" viewBox="0 0 240 140" fill="none" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d={ink} stroke="#8A93A3" strokeWidth="2.4" />
                       <path d={accent} stroke="#3DF2C6" strokeWidth="3" />
                     </svg>
-                    <span className="nm ellipsis">{a.title}</span>
+                    <span className="nm ellipsis">{a.title}</span>{' '}
                     <span className="meta">{KIND_LABEL[a.kind]} · {formatDay(a.updatedAt)}</span>
                   </button>
                   <div className="aface back" aria-hidden={!back}>

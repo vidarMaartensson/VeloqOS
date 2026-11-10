@@ -1,9 +1,45 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { NewCalendarEvent, Routine } from '../state/types';
 import { stockholmIso, upcoming } from '../lib/time';
 import { Icon } from './Icon';
 
+const FOCUSABLE = 'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
+
+/** Moves focus into a dialog, keeps Tab inside it, and hands focus back to what opened it on close. */
+export function useDialogFocus() {
+  const dialog = useRef<HTMLElement>(null);
+  // Read while rendering: an autoFocus field inside has taken focus by the time any effect runs.
+  const [opener] = useState(() => document.activeElement);
+
+  useEffect(() => {
+    const node = dialog.current!;
+    if (!node.contains(document.activeElement)) node.focus({ preventScroll: true });
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const all = Array.from(node.querySelectorAll<HTMLElement>(FOCUSABLE));
+      if (all.length === 0) return e.preventDefault();
+      const first = all[0], last = all[all.length - 1], at = document.activeElement;
+      if (e.shiftKey && (at === first || at === node)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && at === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    node.addEventListener('keydown', onKey);
+    return () => {
+      node.removeEventListener('keydown', onKey);
+      // Only a real close: StrictMode also runs this with the dialog still on the page.
+      if (!node.isConnected && opener instanceof HTMLElement && opener.isConnected) opener.focus({ preventScroll: true });
+    };
+  }, [opener]);
+
+  return dialog;
+}
+
 export function Sheet({ eyebrow, title, label, onClose, children, footer }: { eyebrow: string; title: string; label: string; onClose: () => void; children: ReactNode; footer?: ReactNode }) {
+  const dialog = useDialogFocus();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
@@ -13,7 +49,7 @@ export function Sheet({ eyebrow, title, label, onClose, children, footer }: { ey
   return (
     <>
       <div className="overlay" onClick={onClose} />
-      <section className="sheet" role="dialog" aria-modal="true" aria-label={label}>
+      <section ref={dialog} className="sheet" role="dialog" aria-modal="true" aria-label={label} tabIndex={-1}>
         <div className="sheet-head">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <span className="eyebrow">{eyebrow}</span>
@@ -37,7 +73,7 @@ export function RoutinesSheet({ routines, now, onToggle, onRun, onClose }: { rou
             <span style={{ fontSize: 17, fontWeight: 600 }}>{r.name}</span>
             <span className="meta">{[r.schedule, r.nextRunAt ? `Nästa ${upcoming(r.nextRunAt, now)}` : null].filter(Boolean).join(' · ')}</span>
             <span style={{ fontSize: 16, lineHeight: 1.5, color: 'var(--ink-body)' }}>{r.description}</span>
-            <button className="ghost" style={{ alignSelf: 'flex-start', marginTop: 4 }} onClick={() => onRun(r.id)} aria-label={`Kör ${r.name} nu`}>Kör nu</button>
+            <button className="ghost" style={{ alignSelf: 'flex-start', marginTop: 4 }} onClick={() => onRun(r.id)} aria-label={`Kör nu: ${r.name}`}>Kör nu</button>
           </div>
           <button
             className="toggle"

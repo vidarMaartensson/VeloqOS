@@ -28,9 +28,9 @@ interface Props {
   onShowDisk: () => void;
 }
 
-/** True when a key press belongs to a field or a button rather than to push-to-talk. */
+/** True when a key press belongs to a field, a button or an open dialog rather than to push-to-talk. */
 const typing = (target: EventTarget | null) =>
-  target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON|A)$/.test(target.tagName) || target.getAttribute('role') === 'button');
+  target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON|A)$/.test(target.tagName) || target.getAttribute('role') === 'button' || !!target.closest('[role="dialog"]'));
 
 export function VoiceCore({ voice, portalRef, onAsk, onHold, onRelease, onStop, onSettings, onConfirm, onDismissConfirm, onShowDisk }: Props) {
   const [draft, setDraft] = useState('');
