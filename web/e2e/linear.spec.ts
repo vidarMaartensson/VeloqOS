@@ -67,6 +67,12 @@ test('the board keeps its height with many stories and scrolls inside', async ({
   await stories.focus();
   await page.keyboard.press('End');
   await expect(last).toBeInViewport();
+  // Every column's background reaches the bottom of the scrolled board, not just the height of the card.
+  const heights = await stories.evaluate((el) => {
+    const top = el.getBoundingClientRect().top - el.scrollTop;
+    return { scroll: el.scrollHeight, cols: Array.from(el.querySelectorAll('.col'), (c) => c.getBoundingClientRect().bottom - top) };
+  });
+  for (const bottom of heights.cols) expect(bottom).toBeGreaterThan(heights.scroll - 20);
 });
 
 test('moves a story back with the left arrow, and nowhere without a matching state', async ({ page, api }) => {
@@ -114,7 +120,22 @@ test('adds a story from the board', async ({ page, api }) => {
 
   await expect(board.getByRole('list', { name: 'Att göra' })).toContainText('Pulsen i portalen');
   await expect(board.getByLabel('Ny story')).toHaveValue('');
-  expect(api.requests.find((r) => r.path === '/linear/issues' && r.method === 'POST')?.body).toEqual({ teamId: 't-veloq', title: 'Pulsen i portalen', description: null, priority: 0, stateId: null });
+  // The team has no backlog state, so the first column it has is picked.
+  expect(api.requests.find((r) => r.path === '/linear/issues' && r.method === 'POST')?.body).toEqual({ teamId: 't-veloq', title: 'Pulsen i portalen', description: null, priority: 0, stateId: 'todo' });
+});
+
+test('adds a story to the column you pick', async ({ page, api }) => {
+  const board = page.getByRole('region', { name: 'Linear' });
+  const column = board.getByLabel('Kolumn');
+  await expect(column.locator('option')).toHaveText(['Att göra', 'Pågår', 'Klart']);
+
+  await column.selectOption({ label: 'Pågår' });
+  await expect(board.getByLabel('Ny story')).toHaveAttribute('placeholder', 'Ny story i pågår…');
+  await board.getByLabel('Ny story').fill('Rakt in i arbetet');
+  await board.getByRole('button', { name: 'Lägg till' }).click();
+
+  await expect(board.getByRole('list', { name: 'Pågår' })).toContainText('Rakt in i arbetet');
+  expect(api.requests.find((r) => r.path === '/linear/issues' && r.method === 'POST')?.body).toMatchObject({ title: 'Rakt in i arbetet', stateId: 'progress' });
 });
 
 test('switches team on the board', async ({ page, api }) => {

@@ -69,7 +69,8 @@ test('every panel is a named region', async ({ page }) => {
 test('the keyboard reaches the things you can do', async ({ page }) => {
   await page.getByRole('button', { name: 'Översikt' }).focus();
   const reached = new Set<string>();
-  for (let i = 0; i < 60; i++) {
+  // Enough presses to go once round the whole page; Sök is only reached on the way back to the top.
+  for (let i = 0; i < 70; i++) {
     await page.keyboard.press('Tab');
     reached.add(await page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.textContent ?? ''));
   }

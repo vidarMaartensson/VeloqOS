@@ -150,13 +150,36 @@ describe('LinearTile', () => {
     expect(onToast).toHaveBeenCalledWith('VEL-1 klar. Skriv det i din dagbok, Vidar.');
   });
 
-  it('adds a story to the backlog from the field', async () => {
+  it('adds a story to the first column the team has when there is no backlog', async () => {
     const onCreate = vi.fn().mockResolvedValue(true);
     render(<LinearTile state={state} rick={false} voicePulse={0} onPickTeam={vi.fn()} onMove={vi.fn()} onCreate={onCreate} onOpenAll={vi.fn()} onToast={vi.fn()} />);
 
+    expect(screen.getByLabelText('Kolumn')).toHaveValue('todo');
     await userEvent.type(screen.getByLabelText('Ny story'), 'Portalen{Enter}');
 
-    expect(onCreate).toHaveBeenCalledWith({ teamId: 't-veloq', title: 'Portalen', description: null, priority: 0, stateId: null });
+    expect(onCreate).toHaveBeenCalledWith({ teamId: 't-veloq', title: 'Portalen', description: null, priority: 0, stateId: 'todo' });
+  });
+
+  it('defaults to the backlog when the team has one', async () => {
+    const onCreate = vi.fn().mockResolvedValue(true);
+    const backlog = { id: 'backlog', name: 'Backlog', type: 'backlog' as const, color: '#bec2c8' };
+    const withBacklog = { ...state, teams: state.teams.map((t) => ({ ...t, states: [backlog, ...t.states] })) };
+    render(<LinearTile state={withBacklog} rick={false} voicePulse={0} onPickTeam={vi.fn()} onMove={vi.fn()} onCreate={onCreate} onOpenAll={vi.fn()} onToast={vi.fn()} />);
+
+    expect(screen.getByLabelText('Kolumn')).toHaveValue('backlog');
+    await userEvent.type(screen.getByLabelText('Ny story'), 'Portalen{Enter}');
+
+    expect(onCreate).toHaveBeenCalledWith(expect.objectContaining({ stateId: 'backlog' }));
+  });
+
+  it('adds a story to the picked column', async () => {
+    const onCreate = vi.fn().mockResolvedValue(true);
+    render(<LinearTile state={state} rick={false} voicePulse={0} onPickTeam={vi.fn()} onMove={vi.fn()} onCreate={onCreate} onOpenAll={vi.fn()} onToast={vi.fn()} />);
+
+    await userEvent.selectOptions(screen.getByLabelText('Kolumn'), 'Pågår');
+    await userEvent.type(screen.getByLabelText('Ny story'), 'Portalen{Enter}');
+
+    expect(onCreate).toHaveBeenCalledWith(expect.objectContaining({ title: 'Portalen', stateId: 'progress' }));
   });
 });
 
