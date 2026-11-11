@@ -2,6 +2,7 @@
 
 mod api;
 mod nav;
+mod zoom;
 
 use std::path::PathBuf;
 use std::process::Child;
@@ -9,7 +10,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use tauri::window::Color;
-use tauri::{AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent};
 
 /// The API this app started, so it can be stopped on quit. An API that was already running is left alone.
 struct ApiProcess(Mutex<Option<Child>>);
@@ -53,6 +54,14 @@ fn restart(app: &AppHandle) -> Result<(), String> {
 /// `--bg` from web/src/styles/tokens.css, so the window never flashes white before the page paints.
 const BACKGROUND: Color = Color(0x0b, 0x0d, 0x12, 0xff);
 
+/// Shrinks the dashboard a little in wide windows, see `zoom.rs`.
+fn fit_zoom(window: &WebviewWindow) {
+    let (Ok(size), Ok(scale)) = (window.inner_size(), window.scale_factor()) else { return };
+    if let Err(e) = window.set_zoom(zoom::for_width(size.width as f64 / scale)) {
+        eprintln!("Veloq OS: kunde inte sätta zoom – {e}");
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .manage(ApiProcess(Mutex::new(None)))
@@ -87,7 +96,7 @@ fn main() {
             };
             app.manage(ApiTarget { port, binary, log });
 
-            WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
+            let window = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
                 .title("Veloq OS")
                 .inner_size(1440.0, 900.0)
                 .min_inner_size(1024.0, 680.0)
@@ -102,6 +111,13 @@ fn main() {
                     false
                 })
                 .build()?;
+            fit_zoom(&window);
+            let resized = window.clone();
+            window.on_window_event(move |event| {
+                if matches!(event, WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. }) {
+                    fit_zoom(&resized);
+                }
+            });
             Ok(())
         })
         .build(tauri::generate_context!())
