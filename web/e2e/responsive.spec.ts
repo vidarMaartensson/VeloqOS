@@ -63,6 +63,26 @@ test('the Linear board stays usable', async ({ page }) => {
   await expect(board.getByRole('list', { name: 'Klart' })).toContainText('VEL-1');
 });
 
+test('the Linear board grows no taller than the voice card', async ({ page }) => {
+  const voice = (await page.getByRole('region', { name: 'Röstassistent' }).boundingBox())!;
+  const linear = (await page.getByRole('region', { name: 'Linear' }).boundingBox())!;
+  expect(linear.height).toBeLessThanOrEqual(voice.height + 1);
+});
+
+test('on a wide screen the brief sits top right, skills beside the inbox and artifacts beside Linear', async ({ page }) => {
+  test.skip(page.viewportSize()!.width <= 1180, 'Three columns only on wide screens.');
+  const box = async (name: string) => (await page.getByRole('region', { name, exact: true }).boundingBox())!;
+  const [cal, voice, brief, inbox, skills, linear, art] = await Promise.all(
+    ['Kalender', 'Röstassistent', 'Morgonbrief', 'Inkorg', 'Skills', 'Linear', 'Artefakter'].map(box),
+  );
+  expect(brief.x).toBeGreaterThan(voice.x + voice.width - 1);
+  expect(Math.abs(brief.y - cal.y)).toBeLessThan(2);
+  expect(Math.abs(skills.y - inbox.y)).toBeLessThan(2);
+  expect(skills.x).toBeGreaterThan(voice.x);
+  expect(Math.abs(art.y - linear.y)).toBeLessThan(2);
+  expect(art.x).toBeGreaterThan(linear.x + linear.width - 1);
+});
+
 test('everything in the menu can be reached', async ({ page }) => {
   const nav = page.getByRole('navigation', { name: 'Huvudmeny' });
   await expect(nav).toContainText('Online');

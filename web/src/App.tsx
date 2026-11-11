@@ -64,6 +64,18 @@ export default function App({ api = defaultApi, restartApi = desktopRestart() }:
   const veloqTeam = state.projects.find((p) => p.id === 'veloq-os')?.linearTeam ?? null;
   const board = useLinear(true, api, { showDone: true, preferKey: veloqTeam });
   const portal = useRef<PortalHandle | null>(null);
+  const boardRef = useRef<HTMLDivElement | null>(null);
+  // Linear may grow no taller than the voice card; CSS reads its height from --voice-h.
+  useLayoutEffect(() => {
+    const root = boardRef.current;
+    const voiceCard = root?.querySelector<HTMLElement>('[data-tile="voice"]');
+    if (!root || !voiceCard || typeof ResizeObserver === 'undefined') return;
+    const sync = () => root.style.setProperty('--voice-h', `${voiceCard.offsetHeight}px`);
+    sync();
+    const ro = new ResizeObserver(sync);
+    ro.observe(voiceCard);
+    return () => ro.disconnect();
+  }, []);
   const [voicePulse, setVoicePulse] = useState(0);
   const [toast, setToast] = useState<{ text: string; id: number } | null>(null);
   const [inboxId, setInboxId] = useState<string | undefined>(undefined);
@@ -151,6 +163,11 @@ export default function App({ api = defaultApi, restartApi = desktopRestart() }:
   };
   const runChore = state.chores.find((c) => c.id === runChoreId);
   const choreRunning = (id: string) => state.jobs.some((j) => j.choreId === id && j.status === 'running');
+  const [briefAsked, setBriefAsked] = useState(false);
+  const writeBrief = async () => {
+    setBriefAsked(true);
+    try { await actions.runRoutine('morning-brief'); } finally { setBriefAsked(false); }
+  };
 
   const showProject = (project: Project) => {
     setProjectId(project.id);
@@ -233,7 +250,7 @@ export default function App({ api = defaultApi, restartApi = desktopRestart() }:
         <KpiStrip items={kpis(state, board.state.issues, now)} onJump={jump} />
 
         <PortalContext.Provider value={portal}>
-          <div className="board">
+          <div className="board" ref={boardRef}>
             <CalendarTile
               calendar={state.calendar}
               date={state.calendarDate}
@@ -258,6 +275,30 @@ export default function App({ api = defaultApi, restartApi = desktopRestart() }:
               onDismissConfirm={voice.actions.dismissConfirm}
               onShowDisk={() => jump('disk')}
             />
+            <BriefCard brief={state.brief} now={now} rick={rick} writing={briefAsked || choreRunning('morning-brief')} onWrite={writeBrief} />
+            <InboxTile
+              items={state.inbox}
+              now={now}
+              rick={rick}
+              onAct={actions.act}
+              onOpen={(id) => { setInboxId(id); setPanel('inbox'); }}
+              onOpenAll={() => { setInboxId(undefined); setPanel('inbox'); }}
+            />
+            <SkillsTile chores={state.chores} jobs={state.jobs} onRun={startChore} onOpenAll={() => setPanel('skills')} />
+            <LinearTile
+              state={board.state}
+              rick={rick}
+              voicePulse={voicePulse}
+              onPickTeam={board.actions.pickTeam}
+              onMove={board.actions.move}
+              onCreate={board.actions.create}
+              onOpenAll={() => setPanel('linear')}
+              onToast={showToast}
+            />
+            <ArtifactTile artifacts={state.artifacts} query={query} syncing={choreRunning('sync-artifacts')} onSync={() => runDirectly('sync-artifacts')} />
+          </div>
+
+          <div className="lower">
             <DiskTile
               system={state.system}
               jobs={state.jobs}
@@ -270,34 +311,10 @@ export default function App({ api = defaultApi, restartApi = desktopRestart() }:
               }}
               onToast={showToast}
             />
-            <InboxTile
-              items={state.inbox}
-              now={now}
-              rick={rick}
-              onAct={actions.act}
-              onOpen={(id) => { setInboxId(id); setPanel('inbox'); }}
-              onOpenAll={() => { setInboxId(undefined); setPanel('inbox'); }}
-            />
-            <ArtifactTile artifacts={state.artifacts} query={query} syncing={choreRunning('sync-artifacts')} onSync={() => runDirectly('sync-artifacts')} />
-            <LinearTile
-              state={board.state}
-              rick={rick}
-              voicePulse={voicePulse}
-              onPickTeam={board.actions.pickTeam}
-              onMove={board.actions.move}
-              onCreate={board.actions.create}
-              onOpenAll={() => setPanel('linear')}
-              onToast={showToast}
-            />
-            <SkillsTile chores={state.chores} jobs={state.jobs} onRun={startChore} onOpenAll={() => setPanel('skills')} />
+            <JobsCard jobs={state.jobs} onOpen={(j) => { setJobId(j.id); setPanel('job'); }} />
+            <CiCard projects={state.projects} statuses={state.statuses} onOpen={showProject} />
           </div>
         </PortalContext.Provider>
-
-        <div className="lower">
-          <BriefCard brief={state.brief} now={now} onWrite={() => void actions.runRoutine('morning-brief')} />
-          <JobsCard jobs={state.jobs} onOpen={(j) => { setJobId(j.id); setPanel('job'); }} />
-          <CiCard projects={state.projects} statuses={state.statuses} onOpen={showProject} />
-        </div>
       </main>
 
       {panel === 'project' && openProject && (

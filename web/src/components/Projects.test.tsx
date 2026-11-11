@@ -30,6 +30,14 @@ describe('BriefCard', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Skriv nu' }));
     expect(onWrite).toHaveBeenCalled();
   });
+
+  it('shows the halo writing instead of the old brief while a new one is written', () => {
+    render(<BriefCard brief={brief} now={NOW} writing onWrite={vi.fn()} />);
+    expect(screen.getByRole('status')).toHaveTextContent('Skriver briefen…');
+    expect(screen.queryByText(/Fixa CI i Veloq OS först\./)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Skriver…' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Visa allt' })).not.toBeInTheDocument();
+  });
 });
 
 describe('CiCard', () => {

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Brief, LinearIssue, Project, ProjectStatus, SystemInfo } from '../api/types';
 import { statusLine } from '../lib/projects';
 import { relativeDay } from '../lib/time';
+import { BriefWriter } from './BriefWriter';
 import { Sheet } from './Sheets';
 
 /** The disk in the top bar; when it runs low it turns red and offers to clean up. */
@@ -17,19 +18,25 @@ export function DiskBadge({ system, onClean }: { system: SystemInfo | null; onCl
   );
 }
 
-/** Today's brief, or a way to write one. */
-export function BriefCard({ brief, now, onWrite }: { brief: Brief | null; now: Date; onWrite: () => void }) {
+/** Today's brief, or a way to write one. While one is being written the halo bounces along and writes it. */
+export function BriefCard({ brief, now, writing = false, rick = false, onWrite }: { brief: Brief | null; now: Date; writing?: boolean; rick?: boolean; onWrite: () => void }) {
   const [open, setOpen] = useState(false);
   return (
-    <section className="card enter d1" aria-label="Morgonbrief">
-      <div className="card-head">
-        <span className="label">Morgonbrief</span>
+    <section className="card tile brief-tile" data-tile="brief" aria-label="Morgonbrief">
+      <header className="tile-head">
+        <span className="eyebrow">Morgonbrief</span>
         <span className="meta">{brief ? relativeDay(brief.createdAt, now) : 'Vardagar · 07:40'}</span>
-      </div>
-      {brief ? <p className={open ? 'job-result' : 'job-result brief-short'} style={{ margin: 0 }}>{brief.text}</p> : <p className="empty">Ingen brief än.</p>}
+      </header>
+      {writing ? (
+        <BriefWriter rick={rick} />
+      ) : brief ? (
+        <p className={open ? 'job-result brief-text open' : 'job-result brief-text brief-short'} style={{ margin: 0 }}>{brief.text}</p>
+      ) : (
+        <p className="empty">Ingen brief än.</p>
+      )}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {brief && <button className="ghost small" onClick={() => setOpen(!open)} aria-expanded={open}>{open ? 'Visa mindre' : 'Visa allt'}</button>}
-        <button className="ghost small" onClick={onWrite}>{brief ? 'Skriv en ny' : 'Skriv nu'}</button>
+        {brief && !writing && <button className="ghost small" onClick={() => setOpen(!open)} aria-expanded={open}>{open ? 'Visa mindre' : 'Visa allt'}</button>}
+        <button className="ghost small" onClick={onWrite} disabled={writing}>{writing ? 'Skriver…' : brief ? 'Skriv en ny' : 'Skriv nu'}</button>
       </div>
     </section>
   );
