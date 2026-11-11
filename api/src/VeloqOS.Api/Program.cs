@@ -77,6 +77,7 @@ builder.Services.AddSingleton<IChoreHandler, DiskCleanupHandler>();
 builder.Services.AddSingleton<IChoreHandler, InboxChoreHandler>();
 builder.Services.AddSingleton<IChoreHandler, BriefHandler>();
 builder.Services.AddSingleton<IChoreHandler, ArtifactSyncHandler>();
+builder.Services.AddSingleton<IChoreHandler, OldChatsHandler>();
 builder.Services.AddSingleton<IChoreHandler, ClaudeChoreHandler>();
 builder.Services.AddSingleton<JobService>();
 builder.Services.AddSingleton<InboxService>();
