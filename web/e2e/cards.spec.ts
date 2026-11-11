@@ -16,8 +16,9 @@ test('artifacts spread over more rows when the tile is tall', async ({ page, api
   await page.goto('/');
   const tile = page.getByRole('region', { name: 'Artefakter' });
   await expect(tile.getByRole('button', { name: /^Veloq OS/ })).toBeVisible();
-  const tops = await tile.locator('.acard').evaluateAll((cards) => new Set(cards.map((c) => Math.round(c.getBoundingClientRect().top))).size);
-  expect(tops).toBeGreaterThan(1);
+  // The rows follow a ResizeObserver once the Linear board has grown the tile, so wait for them instead of measuring once.
+  const rows = () => tile.locator('.acard').evaluateAll((cards) => new Set(cards.map((c) => Math.round(c.getBoundingClientRect().top))).size);
+  await expect.poll(rows).toBeGreaterThan(1);
 });
 
 test('the portal grows with the voice card instead of leaving a gap below', async ({ page }) => {
