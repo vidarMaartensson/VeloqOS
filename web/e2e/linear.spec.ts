@@ -39,6 +39,36 @@ test('shows at most five finished stories on the board', async ({ page, api }) =
   await expect(page.getByRole('button', { name: 'Öppna stories: 3' })).toBeVisible();
 });
 
+test('the board keeps its height with many stories and scrolls inside', async ({ page, api }) => {
+  const board = page.getByRole('region', { name: 'Linear' });
+  await expect(board.getByRole('listitem', { name: /^VEL-1:/ })).toBeVisible();
+  const before = (await board.boundingBox())!.height;
+
+  api.linear = [...api.linear, ...Array.from({ length: 30 }, (_, i) => linearIssue(100 + i))];
+  await page.reload();
+  const last = board.getByRole('listitem', { name: /^VEL-129:/ });
+  await expect(last).toBeAttached();
+  expect(Math.abs((await board.boundingBox())!.height - before)).toBeLessThan(2);
+
+  const stories = board.getByRole('group', { name: 'Stories' });
+  const scrollTop = () => stories.evaluate((el) => el.scrollTop);
+  await expect(last).not.toBeInViewport();
+  expect(await stories.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+
+  // The mouse wheel scrolls the stories, not the page.
+  await stories.hover();
+  const pageY = await page.evaluate(() => window.scrollY);
+  await page.mouse.wheel(0, 300);
+  await expect.poll(scrollTop).toBeGreaterThan(0);
+  expect(await page.evaluate(() => window.scrollY)).toBe(pageY);
+
+  // And so does the keyboard: the list takes focus and End goes to the bottom.
+  await stories.evaluate((el) => { el.scrollTop = 0; });
+  await stories.focus();
+  await page.keyboard.press('End');
+  await expect(last).toBeInViewport();
+});
+
 test('moves a story back with the left arrow, and nowhere without a matching state', async ({ page, api }) => {
   const board = page.getByRole('region', { name: 'Linear' });
   await board.getByRole('listitem', { name: /^VEL-1:/ }).press('ArrowLeft');

@@ -65,7 +65,7 @@ export default function App({ api = defaultApi, restartApi = desktopRestart() }:
   const board = useLinear(true, api, { showDone: true, preferKey: veloqTeam });
   const portal = useRef<PortalHandle | null>(null);
   const boardRef = useRef<HTMLDivElement | null>(null);
-  // Linear may grow no taller than the voice card; CSS reads its height from --voice-h.
+  // On a phone Linear may grow, but no taller than the voice card; CSS reads its height from --voice-h.
   useLayoutEffect(() => {
     const root = boardRef.current;
     const voiceCard = root?.querySelector<HTMLElement>('[data-tile="voice"]');

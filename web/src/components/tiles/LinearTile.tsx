@@ -28,6 +28,7 @@ export function LinearTile({ state, rick, voicePulse, onPickTeam, onMove, onCrea
   const known = useRef<Set<string> | null>(null);
   const pulse = useRef(voicePulse);
   const [title, setTitle] = useState('');
+  const [scrolls, setScrolls] = useState(false);
 
   const columns = COLUMNS.map((c) => {
     const issues = state.issues.filter((i) => columnOf(i.state.type) === c.id);
@@ -73,6 +74,19 @@ export function LinearTile({ state, rick, voicePulse, onPickTeam, onMove, onCrea
       pulse.current = voicePulse;
     }
   }, [state.issues, state.loading, voicePulse, portal]);
+
+  // The board has a fixed height; when the stories do not fit, it scrolls and shows a line where it is cut off.
+  useLayoutEffect(() => {
+    const root = board.current;
+    if (!root) return;
+    const fit = () => setScrolls(root.scrollHeight > root.clientHeight + 1);
+    fit();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(fit);
+    ro.observe(root);
+    Array.from(root.children).forEach((c) => ro.observe(c));
+    return () => ro.disconnect();
+  }, [state.issues]);
 
   // Each card can be dragged to a column.
   useLayoutEffect(() => {
@@ -139,7 +153,14 @@ export function LinearTile({ state, rick, voicePulse, onPickTeam, onMove, onCrea
         <button className="ghost sm" onClick={onOpenAll}>Alla</button>
       </header>
       {state.error && <p className="tile-error">{state.error}</p>}
-      <div className="kanban" ref={board}>
+      <div
+        className={`kanban${scrolls ? ' scrolls' : ''}`}
+        ref={board}
+        role="group"
+        aria-label="Stories"
+        // Focusable only when it scrolls, so the keyboard (arrows, Page Down) can move through a long board.
+        tabIndex={scrolls ? 0 : undefined}
+      >
         {columns.map((col, ci) => (
           <div key={col.id} className="col" data-col={col.id} aria-label={col.label} role={col.issues.length > 0 ? 'list' : 'group'}>
             <div className="col-head">
