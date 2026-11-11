@@ -424,14 +424,21 @@ select.input { appearance: none; cursor: pointer; }
 .brief-tile { grid-area: brief; }
 .inbox-tile { grid-area: inbox; }
 .art-tile { grid-area: art; }
-.linear-tile { grid-area: linear; max-height: var(--voice-h, 640px); }
-.linear-tile .kanban { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; align-content: start; }
+/* Linear keeps one height beside the artifacts; extra stories scroll inside the board, not down the page. */
+.linear-tile { grid-area: linear; height: 420px; }
+/* Rows at least as tall as their stories, so the column backgrounds follow the cards all the way down when the board scrolls. */
+.linear-tile .kanban { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; grid-auto-rows: minmax(max-content, auto); border-radius: var(--radius-sm); }
+.linear-new-col { flex: 0 0 auto; width: auto; }
+.linear-tile .kanban:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.linear-tile .kanban.scrolls { padding-bottom: 8px; border-bottom: 1px solid var(--line-strong); border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
 .skills-tile { grid-area: skills; }
 @media (max-width: 1180px) {
   .board { grid-template-columns: 1fr 1fr; grid-template-areas: 'voice voice' 'cal brief' 'inbox skills' 'linear linear' 'art art'; }
 }
 @media (max-width: 760px) {
   .board { grid-template-columns: 1fr; grid-template-areas: 'voice' 'cal' 'brief' 'inbox' 'skills' 'linear' 'art'; }
+  /* On a phone the columns stack two by two, so the board may grow – but never past the voice card. */
+  .linear-tile { height: auto; max-height: var(--voice-h, 640px); }
 }
 .lower { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 20px; }
 
