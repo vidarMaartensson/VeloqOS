@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import type { Artifact } from '../../api/types';
 import { Draggable, gsap, reducedMotion } from '../../lib/motion';
 import { GROUPS, KIND_LABEL } from '../Cards';
@@ -11,10 +11,13 @@ interface Props {
   onSync: () => void;
 }
 
+const CARD_H = 196;
+const CARD_GAP = 14;
+
 const formatDay = (iso: string) =>
   new Intl.DateTimeFormat('sv-SE', { day: 'numeric', month: 'short' }).format(new Date(`${iso}T12:00:00`)).replace('.', '');
 
-/** The artifacts as a carousel: drag it sideways, cards lean towards the pointer, a click turns one over. */
+/** The artifacts as a carousel, in as many rows as the tile has room for: drag it sideways, cards lean towards the pointer, a click turns one over. */
 export function ArtifactTile({ artifacts, query, syncing, onSync }: Props) {
   const [group, setGroup] = useState('Alla');
   const [flipped, setFlipped] = useState<string | null>(null);
@@ -23,6 +26,26 @@ export function ArtifactTile({ artifacts, query, syncing, onSync }: Props) {
   const viewport = useRef<HTMLDivElement>(null);
   const track = useRef<HTMLDivElement>(null);
   const ids = shown.map((a) => a.id).join('|');
+  const [rows, setRows] = useState(1);
+
+  // As many rows of cards as the tile has room for; the rest still scroll sideways.
+  useLayoutEffect(() => {
+    const vp = viewport.current;
+    if (!vp || typeof ResizeObserver === 'undefined') return;
+    const fit = () => {
+      const style = getComputedStyle(vp);
+      const room = vp.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+      setRows(Math.max(1, Math.floor((room + CARD_GAP) / (CARD_H + CARD_GAP))));
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(vp);
+    return () => ro.disconnect();
+  }, []);
+  // A new row count changes how wide the track is; start it from the left again.
+  useLayoutEffect(() => {
+    if (track.current) gsap.set(track.current, { x: 0 });
+  }, [rows]);
 
   useLayoutEffect(() => {
     const vp = viewport.current, tr = track.current;
@@ -85,7 +108,7 @@ export function ArtifactTile({ artifacts, query, syncing, onSync }: Props) {
       </div>
       <div className="atrack-vp" ref={viewport}>
         {shown.length === 0 && <p className="meta">Inga artefakter matchar.</p>}
-        <div className="atrack" ref={track}>
+        <div className="atrack" ref={track} style={{ '--rows': rows } as CSSProperties}>
           {shown.map((a) => {
             const [ink, accent] = THUMBS[a.kind] ?? THUMBS.doc;
             const back = flipped === a.id;

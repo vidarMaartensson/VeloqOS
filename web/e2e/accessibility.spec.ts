@@ -135,6 +135,26 @@ test.describe('focus in a sheet', () => {
     await page.keyboard.up('Space');
     await expect(page.locator('.voice-phase')).toHaveText('Håll inne för att prata');
   });
+
+  test('holding space to talk never scrolls the page', async ({ page }) => {
+    await page.evaluate(() => window.scrollTo(0, 200));
+    const before = await page.evaluate(() => window.scrollY);
+    // A held key sends repeats; every one of them must be swallowed.
+    for (let i = 0; i < 12; i++) await page.keyboard.down('Space');
+    await page.keyboard.up('Space');
+    expect(await page.evaluate(() => window.scrollY)).toBe(before);
+  });
+
+  test('space after clicking a button talks instead of pressing the button again', async ({ page }) => {
+    await page.getByRole('region', { name: 'Kalender' }).getByRole('button', { name: 'Ny händelse' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Stäng' }).click();
+    await page.getByRole('region', { name: 'Kalender' }).getByRole('button', { name: 'I morgon' }).click();
+    const before = await page.evaluate(() => window.scrollY);
+    await page.keyboard.down('Space');
+    await page.keyboard.up('Space');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    expect(await page.evaluate(() => window.scrollY)).toBe(before);
+  });
 });
 
 test('the time on a calendar event still shows before its title', async ({ page }) => {

@@ -28,20 +28,37 @@ interface Props {
   onShowDisk: () => void;
 }
 
-/** True when a key press belongs to a field, a button or an open dialog rather than to push-to-talk. */
-const typing = (target: EventTarget | null) =>
-  target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON|A)$/.test(target.tagName) || target.getAttribute('role') === 'button' || !!target.closest('[role="dialog"]'));
+/**
+ * True when a key press belongs to a field, a button or an open dialog rather than to push-to-talk.
+ * A button only keeps the key when it was reached with the keyboard; one that was just clicked does not.
+ */
+const typing = (target: EventTarget | null) => {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.closest('[role="dialog"]')) return true;
+  const pressable = /^(BUTTON|A)$/.test(target.tagName) || target.getAttribute('role') === 'button';
+  return pressable && keyboardFocus(target);
+};
+
+const keyboardFocus = (el: HTMLElement) => {
+  try {
+    return el.matches(':focus-visible');
+  } catch {
+    return true;
+  }
+};
 
 export function VoiceCore({ voice, portalRef, onAsk, onHold, onRelease, onStop, onSettings, onConfirm, onDismissConfirm, onShowDisk }: Props) {
   const [draft, setDraft] = useState('');
   const rick = voice.settings.persona === 'rick';
   const name = rick ? 'Rick' : 'Assistenten';
 
-  // Space is push-to-talk anywhere on the page, except in fields and on buttons.
+  // Space is push-to-talk anywhere on the page, except in fields and on buttons reached with the keyboard.
+  // Every press is swallowed, the repeats while it is held too, so holding it never scrolls the page.
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      if (e.code !== 'Space' || e.repeat || typing(e.target)) return;
+      if (e.code !== 'Space' || typing(e.target)) return;
       e.preventDefault();
+      if (e.repeat) return;
       onHold();
     };
     const up = (e: KeyboardEvent) => {
