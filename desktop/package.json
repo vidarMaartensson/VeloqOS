@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "scripts": {
     "dev": "tauri dev",
-    "build": "tauri build",
+    "build": "bash scripts/build.sh",
     "icons": "tauri icon ../web/public/favicon.svg",
     "test": "cargo test --manifest-path src-tauri/Cargo.toml",
     "smoke": "bash scripts/smoke.sh"
