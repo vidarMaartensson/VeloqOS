@@ -284,7 +284,7 @@ export default function App({ api = defaultApi, restartApi = desktopRestart() }:
               onOpen={(id) => { setInboxId(id); setPanel('inbox'); }}
               onOpenAll={() => { setInboxId(undefined); setPanel('inbox'); }}
             />
-            <SkillsTile chores={state.chores} jobs={state.jobs} onRun={startChore} onOpenAll={() => setPanel('skills')} />
+            <SkillsTile chores={state.chores} jobs={state.jobs} onRun={startChore} onOpenAll={() => setPanel('skills')} onOldChats={() => runDirectly('old-chats')} />
             <LinearTile
               state={board.state}
               rick={rick}

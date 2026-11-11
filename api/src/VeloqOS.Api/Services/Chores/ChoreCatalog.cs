@@ -16,6 +16,7 @@ public sealed class ChoreCatalog(IOptions<ClaudeOptions> claude)
     public const string WeekSummary = "week-summary";
     public const string MorningBrief = "morning-brief";
     public const string SyncArtifacts = "sync-artifacts";
+    public const string OldChats = "old-chats";
 
     public static readonly IReadOnlyList<Chore> Builtin =
     [
@@ -28,6 +29,7 @@ public sealed class ChoreCatalog(IOptions<ClaudeOptions> claude)
         new(Dependencies, "Kolla beroenden", "Letar efter föråldrade paket och säkerhetsvarningar, i ett projekt eller alla repon.", "package", "≈ 3 min", TimeSpan.FromMinutes(3), Project: ChoreProjects.Optional),
         new(MorningBrief, "Morgonbrief", "Kalender, inkorg, stories och projektstatus i en kort text.", "calendar", "≈ 1 min", TimeSpan.FromMinutes(1)),
         new(SyncArtifacts, "Synka artefakter", "Hämtar dina artefakter från claude.ai till hyllan.", "sync", "≈ 1 min", TimeSpan.FromMinutes(1)),
+        new(OldChats, "Gamla chattar", "Öppnar jobbet i Claude-appen som flyttar Code-sessioner som inte rörts på en vecka till gruppen gamla-chattar.", "sync", "≈ 1 min", TimeSpan.FromSeconds(5)),
         new(WeekSummary, "Veckosammanfattning", "Skriver ihop veckan utifrån git-loggarna i en kort text du kan läsa på telefonen.", "calendar", "≈ 2 min", TimeSpan.FromMinutes(2)),
     ];
 

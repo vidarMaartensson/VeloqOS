@@ -7,13 +7,17 @@ interface Props {
   jobs: Job[];
   onRun: (chore: Chore) => void;
   onOpenAll: () => void;
+  /** Opens the Claude app's job that files week-old Code sessions under gamla-chattar. */
+  onOldChats?: () => void;
 }
 
 const RING = 2 * Math.PI * 21;
 
 /** Your skills and the quick chores as keys: press one and its ring fills while the job runs. */
-export function SkillsTile({ chores, jobs, onRun, onOpenAll }: Props) {
-  const keys = [...chores.filter((c) => c.kind === 'skill'), ...chores.filter((c) => c.kind === 'chore' && c.id !== 'disk-cleanup')].slice(0, 9);
+export function SkillsTile({ chores, jobs, onRun, onOpenAll, onOldChats }: Props) {
+  const ownButton = ['disk-cleanup', 'old-chats'];
+  const keys = [...chores.filter((c) => c.kind === 'skill'), ...chores.filter((c) => c.kind === 'chore' && !ownButton.includes(c.id))].slice(0, 9);
+  const oldChats = onOldChats && chores.some((c) => c.id === 'old-chats');
   const box = useRef<HTMLDivElement>(null);
 
   const press = (chore: Chore, el: HTMLElement) => {
@@ -35,6 +39,7 @@ export function SkillsTile({ chores, jobs, onRun, onOpenAll }: Props) {
       <header className="tile-head">
         <span className="eyebrow">Skills</span>
         <span className="meta">{jobs.filter((j) => j.status === 'running').length} kör</span>
+        {oldChats && <button className="ghost sm" onClick={onOldChats}>Gamla chattar</button>}
         <button className="ghost sm" onClick={onOpenAll}>Alla</button>
       </header>
       <div className="keys" ref={box}>

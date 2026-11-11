@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+import type { Chore } from '../../api/types';
 import type { LinearViewState } from '../../state/useLinear';
 import { NOW, artifacts, calendarConnected, chores, diskJob, inbox, linearIssues, linearTeams, systemOk } from '../../test/fixtures';
 import { ArtifactTile } from './ArtifactTile';
@@ -178,6 +179,23 @@ describe('ArtifactTile, SkillsTile and KpiStrip', () => {
     await userEvent.click(screen.getByRole('button', { name: new RegExp(`^Starta ${skill.name}`) }));
 
     expect(onRun).toHaveBeenCalledWith(skill);
+  });
+
+  it('opens the old-chats job from its own button instead of a key', async () => {
+    const onOldChats = vi.fn();
+    const oldChats: Chore = { id: 'old-chats', name: 'Gamla chattar', description: '', icon: 'sync', estimate: '≈ 1 min', kind: 'chore', project: 'none', argument: null };
+    render(<SkillsTile chores={[...chores, oldChats]} jobs={[]} onRun={vi.fn()} onOpenAll={vi.fn()} onOldChats={onOldChats} />);
+
+    expect(screen.queryByRole('button', { name: /^Starta Gamla chattar/ })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Gamla chattar' }));
+
+    expect(onOldChats).toHaveBeenCalledOnce();
+  });
+
+  it('hides the old-chats button when the API has no such chore', () => {
+    render(<SkillsTile chores={chores} jobs={[]} onRun={vi.fn()} onOpenAll={vi.fn()} onOldChats={vi.fn()} />);
+
+    expect(screen.queryByRole('button', { name: 'Gamla chattar' })).toBeNull();
   });
 
   it('jumps to the panel behind a number', async () => {

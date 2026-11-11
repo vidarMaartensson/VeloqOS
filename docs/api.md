@@ -69,6 +69,8 @@ Svaren från GitHub cachas en minut; `?refresh=true` hämtar nytt.
 
 Chores och skills körs på riktigt på datorn. De flesta går genom Claude Code (`claude -p`, samma inloggning som Claude Code-appen) med `--permission-mode` från `Claude:ChorePermissionMode` (standard `auto`). `disk-cleanup` och `clear-inbox` körs direkt i API:t.
 
+Choren `old-chats` ("Gamla chattar") kör inget själv: den öppnar det schemalagda jobbet `gamla-chattar` i Claude-desktopappen (`claude://claude.ai/epitaxy/scheduled/gamla-chattar`, id:t från `Claude:OldChatsTask`), där du startar det med Kör nu. Jobbet flyttar Code-sessioner som inte rörts på en vecka till sidogruppen gamla-chattar och körs av sig självt varje måndag. Det går inte genom `claude -p`, eftersom sidomenyns verktyg bara finns i appen. Länken öppnas med `open`, så choren fungerar bara när API:t körs på Macen.
+
 `GET /api/chores` → `Chore[]` – inbyggda chores först, sedan dina skills från `~/.claude/skills` (`Claude:SkillsFolder`) sorterade på namn.
 
 ```json

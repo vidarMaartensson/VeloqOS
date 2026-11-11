@@ -26,6 +26,9 @@ public sealed class ClaudeOptions
 
     public double TimeoutMinutes { get; set; } = 10;
 
+    /// <summary>The Claude app's scheduled task that the <c>old-chats</c> chore opens.</summary>
+    public string OldChatsTask { get; set; } = "gamla-chattar";
+
     /// <summary>Where chat mode runs, so its sessions can be resumed. Defaults to VeloqOS/chat under the user's app data.</summary>
     public string? ChatHome { get; set; }
 
