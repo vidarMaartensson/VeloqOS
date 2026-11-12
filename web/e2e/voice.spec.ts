@@ -169,6 +169,8 @@ test.describe('push to talk', () => {
 
   test('holding the button listens, shows the words and sends on release', async ({ page, api }) => {
     const mic = voiceOf(page).getByRole('button', { name: 'Håll inne för att prata' });
+    // The board's rows have a fixed height, so the mic can sit below the fold; the mouse needs it on screen.
+    await mic.scrollIntoViewIfNeeded();
     const box = (await mic.boundingBox())!;
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();

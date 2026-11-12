@@ -1,4 +1,4 @@
-import { calendarConnected } from '../src/test/fixtures';
+import { brief, calendarConnected } from '../src/test/fixtures';
 import { expect, test } from './fixtures';
 
 // Runs in the laptop, tablet and mobile projects.
@@ -81,6 +81,23 @@ test('on a wide screen the brief sits top right, skills beside the inbox and art
   expect(skills.x).toBeGreaterThan(voice.x);
   expect(Math.abs(art.y - linear.y)).toBeLessThan(2);
   expect(art.x).toBeGreaterThan(linear.x + linear.width - 1);
+});
+
+test('a long brief scrolls inside its card instead of stretching the row', async ({ page, api }) => {
+  test.skip(page.viewportSize()!.width <= 760, 'On a phone the cards stack and may grow.');
+  const box = async (name: string) => (await page.getByRole('region', { name, exact: true }).boundingBox())!;
+  const before = await box('Kalender');
+
+  api.brief = { ...brief, text: Array.from({ length: 40 }, (_, i) => `Punkt ${i + 1}: något att göra i dag.`).join('\n') };
+  await page.reload();
+  const text = page.getByLabel('Briefen');
+  await expect(text).toContainText('Punkt 40');
+  await expect(page.getByRole('button', { name: 'Visa allt' })).toHaveCount(0);
+
+  const card = await box('Morgonbrief');
+  expect(Math.abs(card.height - before.height)).toBeLessThan(2);
+  expect(Math.abs((await box('Kalender')).height - before.height)).toBeLessThan(2);
+  expect(await text.evaluate((el) => el.scrollHeight > el.clientHeight + 10)).toBe(true);
 });
 
 test('everything in the menu can be reached', async ({ page }) => {

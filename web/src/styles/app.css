@@ -323,11 +323,10 @@ button.conn.disk { background: none; cursor: pointer; }
 .ci-dot.passing { background: var(--ink-soft); border-color: var(--ink-soft); }
 .ci-dot.failing { background: var(--danger); border-color: var(--danger); }
 .ci-dot.running { background: var(--accent); border-color: var(--accent); }
-.brief-tile .brief-text { flex: 1 1 auto; min-height: 0; }
-.brief-tile .brief-text.open { overflow-y: auto; scrollbar-width: thin; }
+.brief-tile .brief-text { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+.brief-tile .brief-text:focus-visible { outline-offset: 2px; }
 .brief-writer { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 10px; min-height: 140px; }
 .brief-writer svg { max-height: 150px; overflow: visible; }
-.brief-short { display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
 .ghost.small { min-height: 44px; padding: 0 16px; font-size: 14px; }
 
 /* ---------- chores, skills and jobs ---------- */
@@ -418,6 +417,9 @@ select.input { appearance: none; cursor: pointer; }
   display: grid; gap: 20px;
   grid-template-columns: minmax(300px, 1fr) minmax(420px, 1.25fr) minmax(300px, 1fr);
   grid-template-areas: 'cal voice brief' 'inbox voice skills' 'linear linear art';
+  /* Fixed rows: a card that gets more to show scrolls inside itself instead of resizing its neighbours. */
+  grid-template-rows: var(--row-h) var(--row-h) 420px;
+  --row-h: 480px;
 }
 .cal-tile { grid-area: cal; }
 .voice { grid-area: voice; }
@@ -433,10 +435,10 @@ select.input { appearance: none; cursor: pointer; }
 .linear-tile .kanban.scrolls { padding-bottom: 8px; border-bottom: 1px solid var(--line-strong); border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
 .skills-tile { grid-area: skills; }
 @media (max-width: 1180px) {
-  .board { grid-template-columns: 1fr 1fr; grid-template-areas: 'voice voice' 'cal brief' 'inbox skills' 'linear linear' 'art art'; }
+  .board { grid-template-columns: 1fr 1fr; grid-template-areas: 'voice voice' 'cal brief' 'inbox skills' 'linear linear' 'art art'; grid-template-rows: auto var(--row-h) var(--row-h) 420px auto; }
 }
 @media (max-width: 760px) {
-  .board { grid-template-columns: 1fr; grid-template-areas: 'voice' 'cal' 'brief' 'inbox' 'skills' 'linear' 'art'; }
+  .board { grid-template-columns: 1fr; grid-template-areas: 'voice' 'cal' 'brief' 'inbox' 'skills' 'linear' 'art'; grid-template-rows: none; }
   /* On a phone the columns stack two by two, so the board may grow – but never past the voice card. */
   .linear-tile { height: auto; max-height: var(--voice-h, 640px); }
 }
@@ -467,7 +469,7 @@ select.input { appearance: none; cursor: pointer; }
   transition: opacity 0.3s, transform 0.5s var(--ease-spring); pointer-events: none; white-space: nowrap;
 }
 .portal.hungry .portal-drop { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-.voice-log { display: flex; flex-direction: column; gap: 10px; min-height: 96px; }
+.voice-log { flex: 0 1 auto; display: flex; flex-direction: column; gap: 10px; min-height: 96px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
 .voice-hint { margin: 0; color: var(--ink-body); font-size: 17px; line-height: 1.5; text-align: center; text-wrap: balance; }
 .vline p { margin: 0; font-size: 17px; line-height: 1.5; }
 .vline.user p { color: var(--ink-soft); }
@@ -607,7 +609,9 @@ select.input { appearance: none; cursor: pointer; }
 .aface.back .nm { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 
 /* ---------- skills ---------- */
-.keys { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; }
+.keys { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); align-content: start; gap: 10px; }
+/* The skills scroll inside their card; the padding leaves room for a key's hover lift. */
+.skills-tile .keys { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 2px; margin: -4px -2px; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
 .key {
   display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 8px 10px; min-height: 44px;
   border: 1px solid var(--line-strong); border-bottom-width: 4px; border-radius: 18px; background: var(--surface-raised); color: var(--ink);
