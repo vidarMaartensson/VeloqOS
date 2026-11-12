@@ -75,15 +75,13 @@ test('has no brief to begin with, and writes one on request', async ({ page, api
   await expect(page.getByRole('region', { name: 'Pågående jobb' })).toContainText('morning-brief');
 });
 
-test('shows the brief short and all of it on request', async ({ page, api }) => {
+test('shows the whole brief in a card that scrolls', async ({ page, api }) => {
   api.brief = brief;
   await page.reload();
   const card = page.getByRole('region', { name: 'Morgonbrief' });
   await expect(card).toContainText('Fixa CI i Veloq OS först.');
-  await expect(card.locator('.brief-short')).toBeVisible();
-
-  await card.getByRole('button', { name: 'Visa allt' }).click();
-  await expect(card.getByRole('button', { name: 'Visa mindre' })).toHaveAttribute('aria-expanded', 'true');
-  await expect(card.locator('.brief-short')).toHaveCount(0);
+  await expect(card.getByLabel('Briefen')).toContainText('Möte 08:30.');
+  await expect(card.getByLabel('Briefen')).toHaveCSS('overflow-y', 'auto');
+  await expect(card.getByRole('button', { name: 'Visa allt' })).toHaveCount(0);
   await expect(card.getByRole('button', { name: 'Skriv en ny' })).toBeVisible();
 });

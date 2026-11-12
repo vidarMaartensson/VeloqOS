@@ -25,6 +25,9 @@ describe('BriefCard', () => {
     const onWrite = vi.fn();
     const { rerender } = render(<BriefCard brief={brief} now={NOW} onWrite={onWrite} />);
     expect(screen.getByText(/Fixa CI i Veloq OS först\./)).toBeInTheDocument();
+    // The whole brief is there to scroll through; there is no "Visa allt" toggle any more.
+    expect(screen.getByLabelText('Briefen')).toHaveTextContent(/Möte 08:30\./);
+    expect(screen.queryByRole('button', { name: 'Visa allt' })).not.toBeInTheDocument();
 
     rerender(<BriefCard brief={null} now={NOW} onWrite={onWrite} />);
     await userEvent.click(screen.getByRole('button', { name: 'Skriv nu' }));

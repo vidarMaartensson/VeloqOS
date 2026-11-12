@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import type { Brief, LinearIssue, Project, ProjectStatus, SystemInfo } from '../api/types';
 import { statusLine } from '../lib/projects';
 import { relativeDay } from '../lib/time';
@@ -20,7 +19,6 @@ export function DiskBadge({ system, onClean }: { system: SystemInfo | null; onCl
 
 /** Today's brief, or a way to write one. While one is being written the halo bounces along and writes it. */
 export function BriefCard({ brief, now, writing = false, rick = false, onWrite }: { brief: Brief | null; now: Date; writing?: boolean; rick?: boolean; onWrite: () => void }) {
-  const [open, setOpen] = useState(false);
   return (
     <section className="card tile brief-tile" data-tile="brief" aria-label="Morgonbrief">
       <header className="tile-head">
@@ -30,12 +28,11 @@ export function BriefCard({ brief, now, writing = false, rick = false, onWrite }
       {writing ? (
         <BriefWriter rick={rick} />
       ) : brief ? (
-        <p className={open ? 'job-result brief-text open' : 'job-result brief-text brief-short'} style={{ margin: 0 }}>{brief.text}</p>
+        <p className="job-result brief-text" tabIndex={0} aria-label="Briefen" style={{ margin: 0 }}>{brief.text}</p>
       ) : (
         <p className="empty">Ingen brief än.</p>
       )}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {brief && !writing && <button className="ghost small" onClick={() => setOpen(!open)} aria-expanded={open}>{open ? 'Visa mindre' : 'Visa allt'}</button>}
         <button className="ghost small" onClick={onWrite} disabled={writing}>{writing ? 'Skriver…' : brief ? 'Skriv en ny' : 'Skriv nu'}</button>
       </div>
     </section>

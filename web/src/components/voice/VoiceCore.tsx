@@ -84,6 +84,13 @@ export function VoiceCore({ voice, portalRef, onAsk, onHold, onRelease, onStop, 
   const shown = voice.lines.slice(-4);
   const busy = voice.phase === 'thinking';
 
+  // The log scrolls inside the card; keep the newest line in view as it arrives.
+  const log = useRef<HTMLDivElement | null>(null);
+  useLayoutEffect(() => {
+    const el = log.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [voice.lines.length, voice.partial]);
+
   return (
     <section className="voice card" data-tile="voice" aria-label="Röstassistent">
       <header className="voice-head">
@@ -96,7 +103,7 @@ export function VoiceCore({ voice, portalRef, onAsk, onHold, onRelease, onStop, 
 
       <Portal phase={voice.phase} ref={portalRef} label={`${name}: ${PHASE_LABEL[voice.phase]}`} />
 
-      <div className="voice-log" aria-live="polite">
+      <div className="voice-log" ref={log} aria-live="polite">
         {shown.length === 0 && !voice.partial && (
           <p className="voice-hint">{rick ? 'Vad vill du, Vidar? Håll in knappen eller mellanslag och prata.' : 'Håll in knappen eller mellanslag och prata, eller skriv.'}</p>
         )}
